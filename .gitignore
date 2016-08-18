@@ -1,4 +1,7 @@
 .idea/
-*.orig
-*bin/
+bin*/
 *CMakeFiles/
+include/args/
+
+*.orig
+*.gch

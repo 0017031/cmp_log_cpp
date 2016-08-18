@@ -1,7 +1,6 @@
-
 #include "main.h"
 
-const string Raw_filter_list[] = {
+const string Raw_filter_list[] {
     "#",
     //R"rawstring(MAOV\|StdProperty\|Verifier Configuration File)rawstring",
     //R"rawstring(MAOV\|StdProperty\|Verification Date & Time)rawstring",
@@ -14,10 +13,36 @@ const string Raw_filter_list[] = {
     //R"rawstring(SortLog\|StdProperty\|sort_log.pl)rawstring",
 };
 
+//constexpr string FullHelpMessage = {
+//    R"rawstring(Compare common-log-files
+//
+//positional arguments:
+//  f1                    the 1st(left)  file/dir to compare
+//  f2                    the 2nd(right) file/dir to compare
+//
+//optional arguments:
+//  -h                    show this help message and exit
+//  -O OUTPUT
+//                        file to store the diff summary
+//  -L FILE_LIST
+//                        a file which lists all the file names (which exist in both dir1 and dir2) to be compared (one name perl line)
+//example:
+//    c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
+//    c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
+//    c_hash_cmp_log.exe file1 file2 -L fileList.txt -O diff_summary.txt
+//)rawstring"
+//};
 
-const  string LoggerName("myLogger1");
+const string RawStr_example {
+    R"rawstring(example:
+    c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
+    c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
+    c_hash_cmp_log.exe file1 file2 -L fileList.txt -O diff_summary.txt
+    )rawstring"
+};
 
-//class join;
+const string LoggerName{"myLogger1"};
+
 /*!
  *  Compare common-log-files.
  *
@@ -28,21 +53,43 @@ const  string LoggerName("myLogger1");
  *
  * @return none
  */
-int main(int argc, char **argv)
+int main(const int argc, const char **argv)
 {
     //todo: input parameter, and validation of the file/dir
-    if (1 == argc)
+
+    args::ArgumentParser parser("Compare common-log-files.", RawStr_example);
+    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+    args::ValueFlag<string> output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
+    args::ValueFlag<string> cmp_file_list(parser,
+        "FILE_LIST",
+        "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
+        {'L', "file_list"});
+    args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
+    args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
+
+    try
     {
-        cerr << "usage: " << argv[0] << " [-h] [-O OUTPUT] [-L FILE_LIST] f1 f2" << endl;
+        parser.ParseCLI(argc, argv);
+    }
+    catch (args::Help)
+    {
+        cout << "===========" << endl;
+        std::cout << parser;
+        return 0;
+    }
+    catch (args::ParseError e)
+    {
+        cerr << "===========" << endl;
+        std::cerr << e.what() << std::endl;
+        std::cerr << parser;
         return 1;
     }
 
-    InputParser input(argc, argv);
-    if (input.cmdOptionExists("-h"))
-    {
-        cout << << endl;
-    }
-
+    if (output_file) { std::cout << "output_file: " << args::get(output_file) << std::endl; }
+    if (cmp_file_list) { std::cout << "cmp_file_list: " << args::get(cmp_file_list) << std::endl; }
+    if (f1) { std::cout << "f1:" << args::get(f1) << std::endl; }
+    if (f1) { std::cout << "f2:" << args::get(f2) << std::endl; }
+    return 0;
     setup_logger();
 
     hash_compare_log_file("W:/tools_baichun/log_cmp_easy/d1/t.log", "W:/tools_baichun/log_cmp_easy/d2/t.log");
@@ -89,11 +136,11 @@ void hash_compare_log_file(string file_left, string file_right)
     size_t diffLineCount[2];
     vector<string> diffLines[2], filtered_result_lines[2];
 
-	//todo: do hash with 2 thread, using std::async()
-	//e.g. auto res1= async(f, some_vec);
-	//     auto res2 =async(f, some_vec);
+    //todo: do hash with 2 thread, using std::async()
+    //e.g. auto res1= async(f, some_vec);
+    //     auto res2 =async(f, some_vec);
     //     cout << res1.get() << ' ' << res2.get() << endl;
-	
+
     /* for each file, read-in lines, and compute line-hash */
     for (auto i: {_left_, _right_})
     {
@@ -124,11 +171,11 @@ void hash_compare_log_file(string file_left, string file_right)
     /* use set-operation to pick out diff lines(hashes) */
     cHashSet diffResults[2];
     set_difference(mySet[_left_].begin(), mySet[_left_].end(),
-                   mySet[_right_].begin(), mySet[_right_].end(),
-                   inserter(diffResults[_left_], diffResults[_left_].end()));
+        mySet[_right_].begin(), mySet[_right_].end(),
+        inserter(diffResults[_left_], diffResults[_left_].end()));
     set_difference(mySet[_right_].begin(), mySet[_right_].end(),
-                   mySet[_left_].begin(), mySet[_left_].end(),
-                   inserter(diffResults[_right_], diffResults[_right_].end()));
+        mySet[_left_].begin(), mySet[_left_].end(),
+        inserter(diffResults[_right_], diffResults[_right_].end()));
 
     /* process/sort/print the result, use line-number/position to retrieve line content */
     for (auto i: {_left_, _right_})
@@ -152,10 +199,10 @@ void hash_compare_log_file(string file_left, string file_right)
             string raw_regex_line; //concatenate lists into one-line with "|"
             raw_regex_line.append(Raw_filter_list[0]);
             for_each(begin(Raw_filter_list) + 1, end(Raw_filter_list),
-                     [&raw_regex_line](const string s)
-                     {
-                       raw_regex_line.append("|").append(s);
-                     });
+                [&raw_regex_line](const string s)
+                {
+                  raw_regex_line.append("|").append(s);
+                });
             regex myRegexObj_FilterLines(raw_regex_line);
 
             /* go through diffLiens, filter out regex-matched lines */
@@ -175,11 +222,11 @@ void hash_compare_log_file(string file_left, string file_right)
             //cout << marks[i] << marks[i] << marks[i] << " " << diffLineCount[i] << " unique lines in "
             //     << fileToCompare[i] << endl;
             myLogger->info("{}{}{} {} unique lines in {}",
-                           marks[i],
-                           marks[i],
-                           marks[i],
-                           diffLineCount[i],
-                           fileToCompare[i]);
+                marks[i],
+                marks[i],
+                marks[i],
+                diffLineCount[i],
+                fileToCompare[i]);
 
             for (auto l : filtered_result_lines[i])
             {
@@ -197,38 +244,3 @@ void hash_compare_log_file(string file_left, string file_right)
     return;
 }
 
-string getFileName(const string &s)
-{
-    string sep = "\\/";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(found + 1);
-    }
-    return s;
-}
-
-string getBaseName(const string &s)
-{
-    string sep = ".";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(0, found);
-    }
-    return s;
-}
-
-string stripCRLF(const string &s)
-{
-    string sep = "\r\n";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(0, found);
-    }
-    return s;
-}

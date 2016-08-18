@@ -21,35 +21,6 @@ typedef size_t HashValue;
 typedef map<HashValue, cPAIR_LineInfo> cMAP_HashAndLine;
 typedef set<HashValue> cHashSet;
 
-class InputParser
-{
- public:
-  InputParser(int &argc, char **argv)
-  {
-      for (int i = 1; i < argc; ++i)
-          this->tokens.push_back(std::string(argv[i]));
-  }
-  /// @author iain
-  const std::string &getCmdOption(const std::string &option) const
-  {
-      std::vector<std::string>::const_iterator itr;
-      itr = std::find(this->tokens.begin(), this->tokens.end(), option);
-      if (itr != this->tokens.end() && ++itr != this->tokens.end())
-      {
-          return *itr;
-      }
-      return "";
-  }
-  /// @author iain
-  bool cmdOptionExists(const std::string &option) const
-  {
-      return std::find(this->tokens.begin(), this->tokens.end(), option)
-          != this->tokens.end();
-  }
- private:
-  std::vector<std::string> tokens;
-};
-
 /*! compare two logfiles, assuing both input files are valid.
  *
  * @param file_left [in] name of the left/old file
@@ -70,20 +41,51 @@ void setup_logger(string diff_record_file = "diff_summary.txt");
  * @param s [in] input string
  * @return file namle (last) in the string
  */
-string getFileName(const string &s);
+string getFileName(const string &s)
+{
+    string sep = "\\/";
+
+    size_t found = s.find_last_of(sep);
+    if (found != string::npos)
+    {
+        return s.substr(found + 1);
+    }
+    return s;
+}
 
 /*! get the base name. ( ffff in ffff.txt)
  *
  * @param s [in] input string
  * @return base name
  */
-string getBaseName(const string &s);
+string getBaseName(const string &s)
+{
+    string sep = ".";
+
+    size_t found = s.find_last_of(sep);
+    if (found != string::npos)
+    {
+        return s.substr(0, found);
+    }
+    return s;
+}
 
 /*! strip the trailing /r/n of a string
  *
  * @param s [in] input string
  * @return the result
  */
-string stripCRLF(const string &s);
+string stripCRLF(const string &s)
+{
+    string sep = "\r\n";
+
+    size_t found = s.find_last_of(sep);
+    if (found != string::npos)
+    {
+        return s.substr(0, found);
+    }
+    return s;
+}
 
 #endif //C_HASH_CMP_LOG_MAIN_H
+
