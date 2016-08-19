@@ -1,6 +1,5 @@
 #include "main.h"
-
-const string Raw_filter_list[] {
+const string Raw_filter_list[]{
     "#",
     //R"rawstring(MAOV\|StdProperty\|Verifier Configuration File)rawstring",
     //R"rawstring(MAOV\|StdProperty\|Verification Date & Time)rawstring",
@@ -33,7 +32,7 @@ const string Raw_filter_list[] {
 //)rawstring"
 //};
 
-const string RawStr_example {
+const string RawStr_example{
     R"rawstring(example:
     c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
     c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
@@ -55,8 +54,6 @@ const string LoggerName{"myLogger1"};
  */
 int main(const int argc, const char **argv)
 {
-    //todo: input parameter, and validation of the file/dir
-
     args::ArgumentParser parser("Compare common-log-files.", RawStr_example);
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<string> output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
@@ -67,33 +64,81 @@ int main(const int argc, const char **argv)
     args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
     args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
 
+    /* parse parameters */
+    int ret = S_OK;
     try
     {
         parser.ParseCLI(argc, argv);
+        if (!f1 || !f2) //I do need both f1 and f2
+        {
+            cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        }
     }
     catch (args::Help)
     {
         cout << "===========" << endl;
         std::cout << parser;
-        return 0;
+        ret = S_OK;
     }
     catch (args::ParseError e)
     {
         cerr << "===========" << endl;
         std::cerr << e.what() << std::endl;
         std::cerr << parser;
-        return 1;
+        ret = S_FALSE;
     }
 
-    if (output_file) { std::cout << "output_file: " << args::get(output_file) << std::endl; }
-    if (cmp_file_list) { std::cout << "cmp_file_list: " << args::get(cmp_file_list) << std::endl; }
-    if (f1) { std::cout << "f1:" << args::get(f1) << std::endl; }
-    if (f1) { std::cout << "f2:" << args::get(f2) << std::endl; }
-    return 0;
-    setup_logger();
+    string f1_name, f2_name;
+    if (S_OK == ret)
+    {
+        if (output_file) { std::cout << "output_file: " << args::get(output_file) << std::endl; }
+        if (cmp_file_list) { std::cout << "cmp_file_list: " << args::get(cmp_file_list) << std::endl; }
 
-    hash_compare_log_file("W:/tools_baichun/log_cmp_easy/d1/t.log", "W:/tools_baichun/log_cmp_easy/d2/t.log");
-    return 0;
+        /* validate parameters */
+        f1_name = f1.Get();
+        f2_name = f2.Get();
+        /* both f1 and f2 should be valid */
+        if (!FileCanBeRead(f1_name))
+        {
+            cerr << "\n! Can't open " << f1_name << ", \nplease check your input.\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        } else if (!FileCanBeRead(f2_name))
+        {
+            cerr << "\n! Can't open " << f2_name << ", \nplease check your input.\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        }
+    }
+
+    if (S_OK == ret)
+    {
+        setup_logger();
+
+        if (IsDir(f1_name) && IsDir(f2_name))
+        {
+            //todo: compare dir
+            cout << "both are dir" << endl;
+        } else if (!IsDir(f1_name) && !IsDir(f2_name))
+        {
+            //cout << "both are Files" <<endl;
+            //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
+            hash_compare_log_file(f1_name, f2_name);
+        } else
+        {
+            cerr << "\n! Can't compare file Vs. directory\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            return 1;
+        }
+        //todo: compare using file-list
+    }
+    return ret;
 }
 
 void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
@@ -116,25 +161,10 @@ void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
 
 void hash_compare_log_file(string file_left, string file_right)
 {
-    hash<string> str_hash;
-    LineNr lineNumber;
-    Position position;
-    string line;
-
-    auto myLogger = spdlog::get(LoggerName);
-    //myLogger->info("huahua1-info");
-    //myLogger->debug("huahua2-debug");
-    //myLogger->error("tst can't open {}", file_left);
-
     //try using wc to count lines, then use known-sized array. sort, then set-diff. Which way is faster?
-
     const int _left_ = 0, _right_ = 1;
-    cHashSet mySet[2]; // a set of hash-values
-    cMAP_HashAndLine myMap[2]; // hash-value ==map-to=> (lineNr, position-in-file)
-    string fileToCompare[] = {file_left, file_right};
-    char marks[] = {'-', '+'};
-    size_t diffLineCount[2];
-    vector<string> diffLines[2], filtered_result_lines[2];
+    HashSet mySet[2];           // a set of hash-values
+    MAP_HashAndLine myMap[2];   // hash-value ##MappingTo## (lineNr, position-in-file)
 
     //todo: do hash with 2 thread, using std::async()
     //e.g. auto res1= async(f, some_vec);
@@ -142,34 +172,12 @@ void hash_compare_log_file(string file_left, string file_right)
     //     cout << res1.get() << ' ' << res2.get() << endl;
 
     /* for each file, read-in lines, and compute line-hash */
-    for (auto i: {_left_, _right_})
-    {
-        string f = fileToCompare[i];
-        /* open file */
-        ifstream inFile(f.c_str(), ios::binary); //must open as binary, then position is correct.
-        if (inFile)
-        {
-            /* read in lines */
-            lineNumber = 0;
-            position = inFile.tellg();
-            while (getline(inFile, line))
-            {
-                /* compute hash and store in map/set */
-                cPAIR_LineInfo myLineInfo(++lineNumber, position);
-                HashValue l_hash = str_hash(line); //try to detect collision of hashes when adding them to map
-                myMap[i][l_hash] = myLineInfo; // l_hash ~mapped-to~ (lineNumber, position)
-                mySet[i].insert(l_hash);
-                position = inFile.tellg();
-            }
-            inFile.close();
-        } else
-        {
-            myLogger->error("can't open {}", f);
-        }
-    }
+    cchash(file_left, mySet[_left_], myMap[_left_]);
+    cchash(file_right, mySet[_right_], myMap[_right_]);
 
     /* use set-operation to pick out diff lines(hashes) */
-    cHashSet diffResults[2];
+    auto myLogger = spdlog::get(LoggerName);
+    HashSet diffResults[2];
     set_difference(mySet[_left_].begin(), mySet[_left_].end(),
         mySet[_right_].begin(), mySet[_right_].end(),
         inserter(diffResults[_left_], diffResults[_left_].end()));
@@ -178,14 +186,24 @@ void hash_compare_log_file(string file_left, string file_right)
         inserter(diffResults[_right_], diffResults[_right_].end()));
 
     /* process/sort/print the result, use line-number/position to retrieve line content */
+    string fileToCompare[] = {file_left, file_right};
+    char marks[] = {'-', '+'};
+    size_t diffLineCount[2];
+    vector<string> diffLines[2], filtered_result_lines[2];
     for (auto i: {_left_, _right_})
     {
+        hash<string> str_hash;
+        LineNr lineNumber;
+        Position position;
+        string line;
+
         string f = fileToCompare[i];
         ifstream inFile(f.c_str(), ios::binary); //only when open as binary, then position is correct.
         if (inFile)
         {
             diffLineCount[i] = diffResults[i].size();
             diffLines[i].reserve(diffLineCount[i]);
+
             for (auto u : diffResults[i]) //use u as an index/key in the map
             {
                 lineNumber = myMap[i][u].first;
@@ -201,7 +219,7 @@ void hash_compare_log_file(string file_left, string file_right)
             for_each(begin(Raw_filter_list) + 1, end(Raw_filter_list),
                 [&raw_regex_line](const string s)
                 {
-                  raw_regex_line.append("|").append(s);
+                    raw_regex_line.append("|").append(s);
                 });
             regex myRegexObj_FilterLines(raw_regex_line);
 
@@ -242,5 +260,60 @@ void hash_compare_log_file(string file_left, string file_right)
     }
 
     return;
+}
+
+/*!
+ * @brief compute hash for each line of the file, store the hash-set and hash-map.
+ * @param fileName [in] name of the file
+ * @param set [out] hash-set, a "set" of the hash values
+ * @param map [out] a "map"; l_hash ~MappingTo~ (lineNumber, position)
+ */
+void cchash(const string &fileName,
+    HashSet &set,
+    MAP_HashAndLine &map)
+{
+    ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
+
+    /* read in lines */
+    LineNr lineNumber = 1; //lineNumber is shown as 1, 2, 3 ....
+    Position position = inFile.tellg();
+    string line;
+    hash<string> str_hash;
+    while (getline(inFile, line))
+    {
+        /* compute hash and store in map and set */
+        HashValue l_hash = str_hash(line);
+        auto ret = set.insert(l_hash);
+        map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
+
+#ifdef REPORT_REPEATED_LINES
+        if (ret.second) //ret.second: a bool that is true if the element was actually inserted
+        {
+            map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
+
+        } else /* report if found same line (there is nothing to do about hash-collision, unless to change the hash-function) */
+        {
+            auto myLogger = spdlog::get(LoggerName);
+            //myLogger->error("found a identical line: {}, {}#, {}", fileName, lineNumber, line);
+            myLogger->error("same line?: #{}, {}", lineNumber, line);
+            try //try to find privious line
+            {
+                PAIR_LineInfo l_Info = map.at(l_hash);  //throw "std::out_of_range" if not found
+                Position posOriginal = inFile.tellg();
+                string previousLine;
+                getline(inFile.seekg(l_Info.second), previousLine);
+                myLogger->error("prev line : #{}, {}\n", l_Info.first, previousLine);
+                inFile.seekg(posOriginal);              //rember to restore file position!
+            }
+            catch (const std::out_of_range &oor)
+            {
+                myLogger->error("\tCan't find previous line");
+            }
+    }
+#endif
+        /* renew lineNumber and position for next iteration */
+        ++lineNumber;
+        position = inFile.tellg();
+    }
 }
 

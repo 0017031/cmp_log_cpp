@@ -16,10 +16,10 @@ using namespace std;
 
 typedef int LineNr;
 typedef ios::pos_type Position;
-typedef pair<LineNr, Position> cPAIR_LineInfo;
+typedef pair<LineNr, Position> PAIR_LineInfo;
 typedef size_t HashValue;
-typedef map<HashValue, cPAIR_LineInfo> cMAP_HashAndLine;
-typedef set<HashValue> cHashSet;
+typedef map<HashValue, PAIR_LineInfo> MAP_HashAndLine;
+typedef set<HashValue> HashSet;
 
 /*! compare two logfiles, assuing both input files are valid.
  *
@@ -35,6 +35,18 @@ void hash_compare_log_file(string file_left, string file_right);
  * @return none
  */
 void setup_logger(string diff_record_file = "diff_summary.txt");
+
+/*!
+ * @brief compute hash for each line of the file, store the hash-set and hash-map.
+ * @param fileName [in] name of the file
+ * @param set [out] hash-set, a "set" of the hash values
+ * @param map [out] a "map"; l_hash ~MappingTo~ (lineNumber, position)
+ */
+void cchash(const string &fileName,
+    HashSet &set,
+    MAP_HashAndLine &map)
+;
+
 
 /*! get the file name (last) in the string. (f.txt in "c:\f.txt")
  *
@@ -85,6 +97,45 @@ string stripCRLF(const string &s)
         return s.substr(0, found);
     }
     return s;
+}
+
+#ifndef __linux
+#include <io.h>
+#define access    _access_s
+#else
+#include <unistd.h>
+#endif
+
+/*! Check if a file exists.
+ *
+ * @param [in] fileName
+ * @return True if it exists.
+ */
+bool FileExists(const std::string &fileName)
+{
+    return access(fileName.c_str(), 0) == 0;
+}
+
+/*! Check if a file can be read
+ *
+ * @param [in] fileName
+ * @return True if it can be read.
+ */
+bool FileCanBeRead(const std::string &fileName)
+{
+    return access(fileName.c_str(), 4) == 0;
+}
+
+/*! check if it is a directory
+ *
+ * @param [in] theName
+ * @return True if it is an directory
+ */
+bool IsDir(const std::string &theName)
+{
+    auto attributes = GetFileAttributes(theName.c_str());
+    //cout << "file:" << theName << " attrib:" << attributes << endl;
+    return (FILE_ATTRIBUTE_DIRECTORY == attributes);
 }
 
 #endif //C_HASH_CMP_LOG_MAIN_H
