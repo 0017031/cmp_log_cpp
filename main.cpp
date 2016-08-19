@@ -1,3 +1,4 @@
+#include <future>
 #include "main.h"
 const string Raw_filter_list[]{
     "#",
@@ -32,7 +33,7 @@ const string Raw_filter_list[]{
 //)rawstring"
 //};
 
-const string RawStr_example{
+const string RawStr_epilog_CallingExample{
     R"rawstring(example:
     c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
     c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
@@ -41,105 +42,6 @@ const string RawStr_example{
 };
 
 const string LoggerName{"myLogger1"};
-
-/*!
- *  Compare common-log-files.
- *
- *  Try using "set" operations.
- *  First, create hash for each line, appending with line-number and offset (for retrieving line content later)
- *  Thus each file has its own "set" of hashes.
- *  Then, the "diff" is the resut of "set" operations. unique[left] = set[left]-set[right], and vice-versa.
- *
- * @return none
- */
-int main(const int argc, const char **argv)
-{
-    args::ArgumentParser parser("Compare common-log-files.", RawStr_example);
-    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<string> output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
-    args::ValueFlag<string> cmp_file_list(parser,
-        "FILE_LIST",
-        "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
-        {'L', "file_list"});
-    args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
-    args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
-
-    /* parse parameters */
-    int ret = S_OK;
-    try
-    {
-        parser.ParseCLI(argc, argv);
-        if (!f1 || !f2) //I do need both f1 and f2
-        {
-            cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << endl;
-            cout << "===========" << endl;
-            std::cout << parser;
-            ret = S_FALSE;
-        }
-    }
-    catch (args::Help)
-    {
-        cout << "===========" << endl;
-        std::cout << parser;
-        ret = S_OK;
-    }
-    catch (args::ParseError e)
-    {
-        cerr << "===========" << endl;
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
-        ret = S_FALSE;
-    }
-
-    string f1_name, f2_name;
-    if (S_OK == ret)
-    {
-        if (output_file) { std::cout << "output_file: " << args::get(output_file) << std::endl; }
-        if (cmp_file_list) { std::cout << "cmp_file_list: " << args::get(cmp_file_list) << std::endl; }
-
-        /* validate parameters */
-        f1_name = f1.Get();
-        f2_name = f2.Get();
-        /* both f1 and f2 should be valid */
-        if (!FileCanBeRead(f1_name))
-        {
-            cerr << "\n! Can't open " << f1_name << ", \nplease check your input.\n" << endl;
-            cout << "===========" << endl;
-            std::cout << parser;
-            ret = S_FALSE;
-        } else if (!FileCanBeRead(f2_name))
-        {
-            cerr << "\n! Can't open " << f2_name << ", \nplease check your input.\n" << endl;
-            cout << "===========" << endl;
-            std::cout << parser;
-            ret = S_FALSE;
-        }
-    }
-
-    if (S_OK == ret)
-    {
-        setup_logger();
-
-        if (IsDir(f1_name) && IsDir(f2_name))
-        {
-            //todo: compare dir
-            cout << "both are dir" << endl;
-        } else if (!IsDir(f1_name) && !IsDir(f2_name))
-        {
-            //cout << "both are Files" <<endl;
-            //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
-            hash_compare_log_file(f1_name, f2_name);
-        } else
-        {
-            cerr << "\n! Can't compare file Vs. directory\n" << endl;
-            cout << "===========" << endl;
-            std::cout << parser;
-            return 1;
-        }
-        //todo: compare using file-list
-    }
-    return ret;
-}
 
 void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
 {
@@ -159,38 +61,101 @@ void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
 
 }
 
-void hash_compare_log_file(string file_left, string file_right)
+/*! @breif compute hashes line by line, store the result in a set, and a map
+ *
+ * @param fileName
+ * @return  pair<HashSet, MAP_HashAndLine>
+ */
+pair<HashSet, MAP_HashAndLine> hashLines(const string &fileName)
+{
+    HashSet set;
+    MAP_HashAndLine map;
+    ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
+
+    hash<string> str_hash; //the hash "function"
+
+    /* the initial position and lineNumber */
+    LineNr lineNumber = 1; //lineNumber is shown as 1, 2, 3 .... (starting from 1)
+    Position position = inFile.tellg();
+
+    /* read in lines */
+    string line;
+    while (getline(inFile, line))
+    {
+        /* compute hash and store in map and set */
+        HashValue l_hash = str_hash(line);
+        auto ret = set.insert(l_hash);
+        map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
+
+#ifdef REPORT_REPEATED_LINES
+        if (ret.second) //ret.second: a bool that is true if the element was actually inserted
+        {
+            map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
+
+        } else /* report if found same line (there is nothing to do about hash-collision, unless to change the hash-function) */
+        {
+            auto myLogger = spdlog::get(LoggerName);
+            //myLogger->error("found a identical line: {}, {}#, {}", fileName, lineNumber, line);
+            myLogger->error("same line?: #{}, {}", lineNumber, line);
+            try //try to find privious line
+            {
+                PAIR_LineInfo l_Info = map.at(l_hash);  //throw "std::out_of_range" if not found
+                Position posOriginal = inFile.tellg();
+                string previousLine;
+                getline(inFile.seekg(l_Info.second), previousLine);
+                myLogger->error("prev line : #{}, {}\n", l_Info.first, previousLine);
+                inFile.seekg(posOriginal);              //rember to restore file position!
+            }
+            catch (const std::out_of_range &oor)
+            {
+                myLogger->error("\tCan't find previous line");
+            }
+    }
+#endif
+        /* renew lineNumber and position for next iteration */
+        ++lineNumber;
+        position = inFile.tellg();
+    }
+
+    return pair<HashSet, MAP_HashAndLine> {set, map};
+}
+
+/*! @brief compare logfiles by computing the hash of each lines,
+ *  then use set-math-operation to find out unique lines
+ *
+ * @param file_left_ [in]
+ * @param file_right [in]
+ */
+void hash_and_compare_log(const string file_left_, const string file_right)
 {
     //try using wc to count lines, then use known-sized array. sort, then set-diff. Which way is faster?
-    const int _left_ = 0, _right_ = 1;
-    HashSet mySet[2];           // a set of hash-values
-    MAP_HashAndLine myMap[2];   // hash-value ##MappingTo## (lineNr, position-in-file)
-
-    //todo: do hash with 2 thread, using std::async()
-    //e.g. auto res1= async(f, some_vec);
-    //     auto res2 =async(f, some_vec);
-    //     cout << res1.get() << ' ' << res2.get() << endl;
+    const int _left__ = 0, _right_ = 1;
 
     /* for each file, read-in lines, and compute line-hash */
-    cchash(file_left, mySet[_left_], myMap[_left_]);
-    cchash(file_right, mySet[_right_], myMap[_right_]);
+    auto asyn_Left = async(launch::async, hashLines, file_left_);
+    auto asynRight = async(launch::async, hashLines, file_right);
+    pair<HashSet, MAP_HashAndLine> ResultSetAndMap[2]{asyn_Left.get(), asynRight.get()};
 
-    /* use set-operation to pick out diff lines(hashes) */
-    auto myLogger = spdlog::get(LoggerName);
-    HashSet diffResults[2];
-    set_difference(mySet[_left_].begin(), mySet[_left_].end(),
-        mySet[_right_].begin(), mySet[_right_].end(),
-        inserter(diffResults[_left_], diffResults[_left_].end()));
-    set_difference(mySet[_right_].begin(), mySet[_right_].end(),
-        mySet[_left_].begin(), mySet[_left_].end(),
-        inserter(diffResults[_right_], diffResults[_right_].end()));
+#if 1 /* use set-MATH-operation to pick out diff lines(hashes) */
+    HashSet uniqElements[2]; //HashSet operator-(const HashSet &setA, const HashSet &setB)
+    uniqElements[_left__] = ResultSetAndMap[_left__].first - ResultSetAndMap[_right_].first;
+    uniqElements[_right_] = ResultSetAndMap[_right_].first - ResultSetAndMap[_left__].first;
 
+#else //async() no good here, because ResultSetAndMap[] in use.
+    auto a1 = async(launch::async, getUniqueElements, ResultSetAndMap[_left__].first, ResultSetAndMap[_right_].first);
+    auto a2 = async(launch::async, getUniqueElements, ResultSetAndMap[_right_].first, ResultSetAndMap[_left__].first);
+    HashSet uniqElements[2]{a1.get(), a2.get()};
+#endif
+
+    //todo: refactor below, extract shorter functions.
     /* process/sort/print the result, use line-number/position to retrieve line content */
-    string fileToCompare[] = {file_left, file_right};
+    auto myLogger = spdlog::get(LoggerName);
+    string fileToCompare[] = {file_left_, file_right};
     char marks[] = {'-', '+'};
     size_t diffLineCount[2];
     vector<string> diffLines[2], filtered_result_lines[2];
-    for (auto i: {_left_, _right_})
+    MAP_HashAndLine myMap[2]{ResultSetAndMap[_left__].second, ResultSetAndMap[_right_].second};
+    for (auto i: {_left__, _right_})
     {
         hash<string> str_hash;
         LineNr lineNumber;
@@ -201,13 +166,13 @@ void hash_compare_log_file(string file_left, string file_right)
         ifstream inFile(f.c_str(), ios::binary); //only when open as binary, then position is correct.
         if (inFile)
         {
-            diffLineCount[i] = diffResults[i].size();
+            diffLineCount[i] = uniqElements[i].size();
             diffLines[i].reserve(diffLineCount[i]);
 
-            for (auto u : diffResults[i]) //use u as an index/key in the map
+            for (auto u_hash : uniqElements[i]) //use u as an index/key in the map
             {
-                lineNumber = myMap[i][u].first;
-                position = myMap[i][u].second;
+                lineNumber = myMap[i][u_hash].first;
+                position = myMap[i][u_hash].second;
                 getline(inFile.seekg(position), line); //get line content via position
                 diffLines[i].push_back(marks[i] + to_string(lineNumber) + ", " + line);
             }
@@ -263,57 +228,101 @@ void hash_compare_log_file(string file_left, string file_right)
 }
 
 /*!
- * @brief compute hash for each line of the file, store the hash-set and hash-map.
- * @param fileName [in] name of the file
- * @param set [out] hash-set, a "set" of the hash values
- * @param map [out] a "map"; l_hash ~MappingTo~ (lineNumber, position)
+ *  Compare common-log-files.
+ *
+ *  Try using "set" operations.
+ *  First, create hash for each line, appending with line-number and offset (for retrieving line content later)
+ *  Thus each file has its own "set" of hashes.
+ *  Then, the "diff" is the resut of "set" operations. unique[left] = set[left]-set[right], and vice-versa.
+ *
+ * @return none
  */
-void cchash(const string &fileName,
-    HashSet &set,
-    MAP_HashAndLine &map)
+int main(const int argc, const char **argv)
 {
-    ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
+    args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
+    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+    args::ValueFlag<string> output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
+    args::ValueFlag<string> cmp_file_list(parser,
+        "FILE_LIST",
+        "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
+        {'L', "file_list"});
+    args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
+    args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
 
-    /* read in lines */
-    LineNr lineNumber = 1; //lineNumber is shown as 1, 2, 3 ....
-    Position position = inFile.tellg();
-    string line;
-    hash<string> str_hash;
-    while (getline(inFile, line))
+    /* parse parameters */
+    int ret = S_OK;
+    try
     {
-        /* compute hash and store in map and set */
-        HashValue l_hash = str_hash(line);
-        auto ret = set.insert(l_hash);
-        map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
-
-#ifdef REPORT_REPEATED_LINES
-        if (ret.second) //ret.second: a bool that is true if the element was actually inserted
+        parser.ParseCLI(argc, argv);
+        if (!f1 || !f2) //I do need both f1 and f2
         {
-            map[l_hash] = PAIR_LineInfo {lineNumber, position}; // l_hash ~mapped-to~ (lineNumber, position)
+            cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        }
+    }
+    catch (args::Help)
+    {
+        cout << "===========" << endl;
+        std::cout << parser;
+        ret = S_OK;
+    }
+    catch (args::ParseError e)
+    {
+        cerr << "===========" << endl;
+        std::cerr << e.what() << std::endl;
+        std::cerr << parser;
+        ret = S_FALSE;
+    }
 
-        } else /* report if found same line (there is nothing to do about hash-collision, unless to change the hash-function) */
+    /* validate parameters */
+    string f1_name, f2_name;
+    if (S_OK == ret)
+    {
+        if (output_file) { std::cout << "output_file: " << args::get(output_file) << std::endl; }
+        if (cmp_file_list) { std::cout << "cmp_file_list: " << args::get(cmp_file_list) << std::endl; }
+
+        f1_name = f1.Get();
+        f2_name = f2.Get();
+
+        /* both f1 and f2 should be valid */
+        if (!FileCanBeRead(f1_name))
         {
-            auto myLogger = spdlog::get(LoggerName);
-            //myLogger->error("found a identical line: {}, {}#, {}", fileName, lineNumber, line);
-            myLogger->error("same line?: #{}, {}", lineNumber, line);
-            try //try to find privious line
-            {
-                PAIR_LineInfo l_Info = map.at(l_hash);  //throw "std::out_of_range" if not found
-                Position posOriginal = inFile.tellg();
-                string previousLine;
-                getline(inFile.seekg(l_Info.second), previousLine);
-                myLogger->error("prev line : #{}, {}\n", l_Info.first, previousLine);
-                inFile.seekg(posOriginal);              //rember to restore file position!
-            }
-            catch (const std::out_of_range &oor)
-            {
-                myLogger->error("\tCan't find previous line");
-            }
+            cerr << "\n! Can't open " << f1_name << ", \nplease check your input.\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        } else if (!FileCanBeRead(f2_name))
+        {
+            cerr << "\n! Can't open " << f2_name << ", \nplease check your input.\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            ret = S_FALSE;
+        }
     }
-#endif
-        /* renew lineNumber and position for next iteration */
-        ++lineNumber;
-        position = inFile.tellg();
+
+    if (S_OK == ret)
+    {
+        setup_logger();
+
+        if (IsDir(f1_name) && IsDir(f2_name))
+        {
+            //todo: compare dir
+            cout << "both are dir" << endl;
+        } else if (!IsDir(f1_name) && !IsDir(f2_name))
+        {
+            //cout << "both are Files" <<endl;
+            //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
+            hash_and_compare_log(f1_name, f2_name);
+        } else
+        {
+            cerr << "\n! Can't compare file Vs. directory\n" << endl;
+            cout << "===========" << endl;
+            std::cout << parser;
+            return 1;
+        }
+        //todo: compare using file-list
     }
+    return ret;
 }
-

@@ -23,11 +23,11 @@ typedef set<HashValue> HashSet;
 
 /*! compare two logfiles, assuing both input files are valid.
  *
- * @param file_left [in] name of the left/old file
+ * @param file_left_ [in] name of the left/old file
  * @param file_right [in] name of the right/new file
  * @return none
  */
-void hash_compare_log_file(string file_left, string file_right);
+void hash_and_compare_log(const string file_left_, const string file_right);
 
 /*! setup logger, with 3 sinks: console, full-summary-file, brief-file
  *
@@ -36,16 +36,37 @@ void hash_compare_log_file(string file_left, string file_right);
  */
 void setup_logger(string diff_record_file = "diff_summary.txt");
 
-/*!
- * @brief compute hash for each line of the file, store the hash-set and hash-map.
- * @param fileName [in] name of the file
- * @param set [out] hash-set, a "set" of the hash values
- * @param map [out] a "map"; l_hash ~MappingTo~ (lineNumber, position)
+/*! @breif find the unique elements betwen setA and setB
+ *
+ * @param setA
+ * @param setB
+ * @return the unique elements stored in a hashset
  */
-void cchash(const string &fileName,
-    HashSet &set,
-    MAP_HashAndLine &map)
-;
+HashSet getUniqueElements(const HashSet &setA, const HashSet &setB)
+{
+    HashSet result;
+    set_difference(
+        setA.begin(), setA.end(),
+        setB.begin(), setB.end(),
+        inserter(result, result.end()));
+    return result;
+}
+
+/*! @breif find the unique elements betwen setA and setB
+ *
+ * @param setA
+ * @param setB
+ * @return the unique elements stored in a hashset
+ */
+HashSet operator-(const HashSet &setA, const HashSet &setB)
+{
+    HashSet result;
+    set_difference(
+        setA.begin(), setA.end(),
+        setB.begin(), setB.end(),
+        inserter(result, result.end()));
+    return result;
+}
 
 
 /*! get the file name (last) in the string. (f.txt in "c:\f.txt")
@@ -137,6 +158,56 @@ bool IsDir(const std::string &theName)
     //cout << "file:" << theName << " attrib:" << attributes << endl;
     return (FILE_ATTRIBUTE_DIRECTORY == attributes);
 }
+
+#if 0 //my trial codes
+void printHash(const string &fileName, const pair<HashSet, MAP_HashAndLine> &r)
+{
+    ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
+    auto myLogger = spdlog::get(LoggerName);
+
+    cout << "hash_size:" << r.first.size();
+    cout << "\tmap_size:" << r.second.size() << endl;
+
+    //for (auto h: r.first)
+    //{
+    //    cout << h << endl;
+    //}
+
+    for (auto h: r.second)
+    {
+        //cout << h.first << ", " << h.second.first << ", " << h.second.second ;
+
+        try //try to find privious line
+        {
+            PAIR_LineInfo l_Info = h.second/*map.at(l_hash)*/;  //throw "std::out_of_range" if not found
+            string myline;
+            getline(inFile.seekg(l_Info.second), myline);
+            myLogger->error("#{},\t{}", l_Info.first, myline);
+        }
+        catch (const out_of_range &oor)
+        {
+            myLogger->error("\tCan't find line");
+        }
+    }
+}
+void test_hash(void)
+{
+    setup_logger();
+    string f_left{"W:/tools_baichun/log_cmp_easy/d1/t.log"};
+    string f_right{"W:/tools_baichun/log_cmp_easy/d2/t.log"};
+
+    auto aRet0 = async(ddhash, f_left);
+    auto aRet1 = async(ddhash, f_right);
+
+    pair<HashSet, MAP_HashAndLine> r0 = aRet0.get();
+    pair<HashSet, MAP_HashAndLine> r1 = aRet1.get();
+
+    printHash(f_left, r0);
+    printHash(f_right, r1);
+
+    return;
+}
+#endif
 
 #endif //C_HASH_CMP_LOG_MAIN_H
 

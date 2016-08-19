@@ -1071,6 +1071,7 @@ public:
          */
         bool showProglinePositionals = true;
     } helpParams;
+
     ArgumentParser(const std::string &description, const std::string &epilog = std::string()) :
         Group("", Group::Validators::AllChildGroups),
         description(description),

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.6)
 project(c_hash_cmp_log)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 include_directories("include")
 #include_directories("${PROJECT_SOURCE_DIR}/include")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin2")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "bin")
 
 set(SOURCE_FILES
