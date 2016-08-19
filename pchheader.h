@@ -5,8 +5,13 @@
 #ifndef C_HASH_CMP_LOG_PCHHEADER_H
 #define C_HASH_CMP_LOG_PCHHEADER_H
 
+#include <future>
+#include <set>
+#include <iostream>
+#include <fstream>
+#include <regex>
+
 #include "spdlog/spdlog.h"
 #include "args/args.hxx"
-
 
 #endif //C_HASH_CMP_LOG_PCHHEADER_H

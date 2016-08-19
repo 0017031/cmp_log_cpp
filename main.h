@@ -1,213 +1,258 @@
 //
 // Created by baic on 2016-8-11.
+// interface definitions
 //
 
 #ifndef C_HASH_CMP_LOG_MAIN_H
 #define C_HASH_CMP_LOG_MAIN_H
 
+#include <future>
 #include <set>
 #include <iostream>
 #include <fstream>
 #include <regex>
 
-#include "pchheader.h"
+#include "supportFunctions.h"
 
-using namespace std;
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define my_type_defines
+typedef std::vector<std::string> RegexRawLines;
 typedef int LineNr;
-typedef ios::pos_type Position;
-typedef pair<LineNr, Position> PAIR_LineInfo;
 typedef size_t HashValue;
-typedef map<HashValue, PAIR_LineInfo> MAP_HashAndLine;
-typedef set<HashValue> HashSet;
+typedef std::ios::pos_type Position;
+typedef std::pair<LineNr, Position> PAIR_LineInfo;
+typedef std::set<HashValue> HashSet; ///< a "set" of hashes
+typedef std::map<HashValue, PAIR_LineInfo> MAP_HashAndLine; ///<  hashValue maps to {LineNr, Position/offset_in_file}
 
-/*! compare two logfiles, assuing both input files are valid.
- *
- * @param file_left_ [in] name of the left/old file
- * @param file_right [in] name of the right/new file
- * @return none
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+typedef std::pair<LineNr, std::string> DiffResult;
+typedef std::vector<DiffResult> DiffResultLines;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define my_string_resources
+//constexpr std::string FullHelpMessage = {
+//    R"rawstring(Compare common-log-files
+//
+//positional arguments:
+//  f1                    the 1st(left)  file/dir to compare
+//  f2                    the 2nd(right) file/dir to compare
+//
+//optional arguments:
+//  -h                    show this help message and exit
+//  -O OUTPUT
+//                        file to store the diff summary
+//  -L FILE_LIST
+//                        a file which lists all the file names (which exist in both dir1 and dir2) to be compared (one name perl line)
+//example:
+//    c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
+//    c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
+//    c_hash_cmp_log.exe file1 file2 -L fileList.txt -O diff_summary.txt
+//)rawstring"
+//};
+
+///@breif a list of raw regex expressions
+const RegexRawLines Raw_filter_list{
+    "^#",
+    //R"rawstring(MAOV\|StdProperty\|Verifier Configuration File)rawstring",
+    //R"rawstring(MAOV\|StdProperty\|Verification Date & Time)rawstring",
+    //R"rawstring(MAOV\|StdVersion\|)rawstring",
+    //R"rawstring(MODEL\|StdProperty\|Simulation Date & Time)rawstring",
+    //R"rawstring(MODEL\|StdVersion\|CEL)rawstring",
+    //R"rawstring(MODEL\|StdVersion\|ModelExecutable)rawstring",
+    //R"rawstring(MODEL\|StdVersion\|ModelLibrary)rawstring",
+    //R"rawstring(SortLog\|StdProperty\|Filtered Events File)rawstring",
+    //R"rawstring(SortLog\|StdProperty\|sort_log.pl)rawstring",
+};
+const std::string RawStr_epilog_CallingExample{
+    R"rawstring(example:
+    c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
+    c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
+    c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt -L fileList.txt
+    )rawstring"
+}; ///< command line examples
+const std::string defaultOutputFile{"diff_summary.txt"}; ///< default outpu files
+
+///@breif the name for the logger [https://github.com/gabime/spdlog, local: w:\github-libs\spdlog (with my own changes)]
+const std::string LoggerName{"myLogger1"};
+const char prefixMarks[]{'-', '+'}; ///< prefix when printing the diff-lines
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define my_types_and_classes
+/*! @brief to indicate which kind of comparison when parsing the parameters
  */
-void hash_and_compare_log(const string file_left_, const string file_right);
+enum CompareType {
+  file,           ///< compare file1 vs. file2
+  dir,            ///< compare dir1 vs. dir2 (for all files in dir, same-name Vs. same-name)
+  dir_with_list   ///< dir1 vs. dir2, only for files in the file-list
+};
+
+/*! @brief store the parsing result for parameters
+ */
+struct myParameter {
+public:
+  bool valid;                 ///< whether it is valid
+  CompareType howToCompare;   ///< which kind of comparison
+  std::string f1_name;        ///< name for f1/dir1
+  std::string f2_name;        ///< name for f2/dir2
+  std::string listFile_name;  ///< list_file, when comparing @ref dir_with_list
+  std::string outputFile_name;///< default: diff_summary.txt (and another diff_summary_brief.txt)
+
+  /// initialize to default values
+  myParameter() :
+      valid{false},
+      outputFile_name{defaultOutputFile},
+      f1_name{}, //to check, use: f1_name.empty()
+      f2_name{},
+      listFile_name{} {};
+
+  /*! @brief parse the command line parameters. p.valid is updated according to parsing result.
+   *
+   * @param argc [in] same as the one fed to main()
+   * @param argv [in] same as the one fed to main()
+   * @return none
+   */
+  myParameter(const int argc, const char *const *argv) {
+    args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
+    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+    args::ValueFlag<std::string>
+        output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
+    args::ValueFlag<std::string> cmp_file_list(parser,
+                                               "FILE_LIST",
+                                               "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
+                                               {'L', "file_list"});
+    args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
+    args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
+
+    /* parse parameters */
+    try {
+      parser.ParseCLI(argc, argv);
+      if (!f1 || !f2) //I do need both f1 and f2
+      {
+        std::cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << std::endl;
+        std::cout << "===========" << std::endl;
+        std::cout << parser;
+        this->valid = false;
+        return;
+      }
+    }
+    catch (args::Help) {
+      std::cout << "===========" << std::endl;
+      std::cout << parser;
+      this->valid = false;
+      return;
+    }
+    catch (args::ParseError e) {
+      std::cerr << "===========" << std::endl;
+      std::cerr << e.what() << std::endl;
+      std::cerr << parser;
+      this->valid = false;
+      return;
+    }
+
+    /* validate parameters */
+    if (output_file) {
+      this->outputFile_name = args::get(output_file);
+      std::cout << "output_file: " << this->outputFile_name << std::endl;
+    } else {
+      this->outputFile_name = defaultOutputFile;
+    }
+    if (cmp_file_list) {
+      this->listFile_name = args::get(cmp_file_list);
+      std::cout << "cmp_file_list: " << this->listFile_name << std::endl;
+    }
+
+    this->f1_name = f1.Get();
+    this->f2_name = f2.Get();
+
+    /* both f1 and f2 should be valid */
+    if (!FileCanBeRead(this->f1_name)) {
+      std::cerr << "\n! Can't open " << this->f1_name << ", \nplease check your input.\n" << std::endl;
+      std::cout << "===========" << std::endl;
+      std::cout << parser;
+      this->valid = false;
+      return;
+    } else if (!FileCanBeRead(this->f2_name)) {
+      std::cerr << "\n! Can't open " << this->f2_name << ", \nplease check your input.\n" << std::endl;
+      std::cout << "===========" << std::endl;
+      std::cout << parser;
+      this->valid = false;
+      return;
+    }
+
+    if (IsDir(this->f1_name) && IsDir(this->f2_name)) {
+      this->howToCompare = CompareType::dir;
+      this->valid = true;
+      //todo: check list-file, for comparing with list
+
+    } else if (!IsDir(this->f1_name) && !IsDir(this->f2_name)) {
+      this->howToCompare = CompareType::file;
+      this->valid = true;
+    } else {
+      this->valid = false;
+    }
+    return;
+  }
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#define my_big_functions
+
+/*! @brief compare logfiles by computing the hash of each lines,
+ *  then use set-math-operation to find out unique lines
+ *
+ * @param file_left_ [in]
+ * @param file_right [in]
+ */
+void hash_and_compare_log(const std::string file_left_, const std::string file_right);
+
+/*! @brief compute hashes line by line, store the result in a set, and a map
+ *
+ * @param fileName
+ * @return  pair<HashSet, MAP_HashAndLine>
+ */
+std::pair<HashSet, MAP_HashAndLine> doHashLines(const std::string &fileName);
+
+/*! @brief find the unique elements betwen setA and setB
+ *
+ * @param setA
+ * @param setB
+ * @return the unique elements stored in a hashset
+ */
+HashSet operator-(const HashSet &setA, const HashSet &setB);
+/*! @brief find the unique elements betwen setA and setB
+ *
+ * @param setA
+ * @param setB
+ * @return the unique elements stored in a hashset
+ */
+HashSet getUniqueElements(const HashSet &setA, const HashSet &setB);
+
+/*! @brief get lines from the hash-values
+ *
+ * @param fileName [in] the file
+ * @param hashSet [in] the hashes
+ * @param myMap [in] the map which contains the hash<=>[lineNr, offset] infomation.
+ * @return the lines
+ */
+DiffResultLines getLinesFromHash(const std::string &fileName, const HashSet &hashSet, const MAP_HashAndLine &myMap);
+
+/*! @brief filter lines with regex
+ *
+ * @param lines [in] the lines
+ * @param rawRegexList [in] the regex in raw-list
+ * @return the result, the filtered lines, sorted.
+ */
+DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLines &rawRegexList);
 
 /*! setup logger, with 3 sinks: console, full-summary-file, brief-file
  *
  * @param diff_record_file [in] name of the diff-result file
  * @return none
  */
-void setup_logger(string diff_record_file = "diff_summary.txt");
-
-/*! @breif find the unique elements betwen setA and setB
- *
- * @param setA
- * @param setB
- * @return the unique elements stored in a hashset
- */
-HashSet getUniqueElements(const HashSet &setA, const HashSet &setB)
-{
-    HashSet result;
-    set_difference(
-        setA.begin(), setA.end(),
-        setB.begin(), setB.end(),
-        inserter(result, result.end()));
-    return result;
-}
-
-/*! @breif find the unique elements betwen setA and setB
- *
- * @param setA
- * @param setB
- * @return the unique elements stored in a hashset
- */
-HashSet operator-(const HashSet &setA, const HashSet &setB)
-{
-    HashSet result;
-    set_difference(
-        setA.begin(), setA.end(),
-        setB.begin(), setB.end(),
-        inserter(result, result.end()));
-    return result;
-}
-
-
-/*! get the file name (last) in the string. (f.txt in "c:\f.txt")
- *
- * @param s [in] input string
- * @return file namle (last) in the string
- */
-string getFileName(const string &s)
-{
-    string sep = "\\/";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(found + 1);
-    }
-    return s;
-}
-
-/*! get the base name. ( ffff in ffff.txt)
- *
- * @param s [in] input string
- * @return base name
- */
-string getBaseName(const string &s)
-{
-    string sep = ".";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(0, found);
-    }
-    return s;
-}
-
-/*! strip the trailing /r/n of a string
- *
- * @param s [in] input string
- * @return the result
- */
-string stripCRLF(const string &s)
-{
-    string sep = "\r\n";
-
-    size_t found = s.find_last_of(sep);
-    if (found != string::npos)
-    {
-        return s.substr(0, found);
-    }
-    return s;
-}
-
-#ifndef __linux
-#include <io.h>
-#define access    _access_s
-#else
-#include <unistd.h>
-#endif
-
-/*! Check if a file exists.
- *
- * @param [in] fileName
- * @return True if it exists.
- */
-bool FileExists(const std::string &fileName)
-{
-    return access(fileName.c_str(), 0) == 0;
-}
-
-/*! Check if a file can be read
- *
- * @param [in] fileName
- * @return True if it can be read.
- */
-bool FileCanBeRead(const std::string &fileName)
-{
-    return access(fileName.c_str(), 4) == 0;
-}
-
-/*! check if it is a directory
- *
- * @param [in] theName
- * @return True if it is an directory
- */
-bool IsDir(const std::string &theName)
-{
-    auto attributes = GetFileAttributes(theName.c_str());
-    //cout << "file:" << theName << " attrib:" << attributes << endl;
-    return (FILE_ATTRIBUTE_DIRECTORY == attributes);
-}
-
-#if 0 //my trial codes
-void printHash(const string &fileName, const pair<HashSet, MAP_HashAndLine> &r)
-{
-    ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
-    auto myLogger = spdlog::get(LoggerName);
-
-    cout << "hash_size:" << r.first.size();
-    cout << "\tmap_size:" << r.second.size() << endl;
-
-    //for (auto h: r.first)
-    //{
-    //    cout << h << endl;
-    //}
-
-    for (auto h: r.second)
-    {
-        //cout << h.first << ", " << h.second.first << ", " << h.second.second ;
-
-        try //try to find privious line
-        {
-            PAIR_LineInfo l_Info = h.second/*map.at(l_hash)*/;  //throw "std::out_of_range" if not found
-            string myline;
-            getline(inFile.seekg(l_Info.second), myline);
-            myLogger->error("#{},\t{}", l_Info.first, myline);
-        }
-        catch (const out_of_range &oor)
-        {
-            myLogger->error("\tCan't find line");
-        }
-    }
-}
-void test_hash(void)
-{
-    setup_logger();
-    string f_left{"W:/tools_baichun/log_cmp_easy/d1/t.log"};
-    string f_right{"W:/tools_baichun/log_cmp_easy/d2/t.log"};
-
-    auto aRet0 = async(ddhash, f_left);
-    auto aRet1 = async(ddhash, f_right);
-
-    pair<HashSet, MAP_HashAndLine> r0 = aRet0.get();
-    pair<HashSet, MAP_HashAndLine> r1 = aRet1.get();
-
-    printHash(f_left, r0);
-    printHash(f_right, r1);
-
-    return;
-}
-#endif
+void setup_logger(std::string diff_record_file = "diff_summary.txt");
 
 #endif //C_HASH_CMP_LOG_MAIN_H
 
