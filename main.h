@@ -21,13 +21,12 @@ typedef int LineNr;
 typedef size_t HashValue;
 typedef std::ios::pos_type Position;
 typedef std::pair<LineNr, Position> PAIR_LineInfo;
-typedef std::set<HashValue> HashSet; ///< a "set" of hashes
-typedef std::map<HashValue, PAIR_LineInfo> MAP_HashAndLine; ///<  hashValue maps to {LineNr, Position/offset_in_file}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
+typedef std::vector<HashValue> LineHashes; ///< use vector to store hashes. Remember to sort it befor set_difference.
+typedef std::map<HashValue, PAIR_LineInfo> MAP_HashAndLine;
 typedef std::pair<LineNr, std::string> DiffResult;
 typedef std::vector<DiffResult> DiffResultLines;
+/// @typedef MAP_HashAndLine : hashValue maps to {LineNr, Position/offset_in_file};
+/// so when reading lines, we could quickly loacte lineNumber/postion from hash
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define my_string_resources
@@ -114,7 +113,8 @@ public:
    * @param argv [in] same as the one fed to main()
    * @return none
    */
-  myParameter(const int argc, const char *const *argv) {
+  myParameter(const int argc, const char *const *argv)
+  {
     args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
     args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
     args::ValueFlag<std::string>
@@ -208,38 +208,39 @@ public:
  */
 void hash_and_compare_log(const std::string file_left_, const std::string file_right);
 
-/*! @brief compute hashes line by line, store the result in a set, and a map
+/*! @brief compute hashes line by line, store the result in a sorted-container of hashes, and a map
  *
  * @param fileName
- * @return  pair<HashSet, MAP_HashAndLine>
+ * @return  pair<Hashes, MAP_HashAndLine>
  */
-std::pair<HashSet, MAP_HashAndLine> doHashLines(const std::string &fileName);
+std::pair<LineHashes, MAP_HashAndLine> doHashLines(const std::string &fileName);
 
 /*! @brief find the unique elements betwen setA and setB
  *
  * @param setA
  * @param setB
- * @return the unique elements stored in a hashset
+ * @return the unique elements
  */
-HashSet operator-(const HashSet &setA, const HashSet &setB);
+LineHashes operator-(const LineHashes &setA, const LineHashes &setB);
+
 /*! @brief find the unique elements betwen setA and setB
  *
  * @param setA
  * @param setB
- * @return the unique elements stored in a hashset
+ * @return the unique elements
  */
-HashSet getUniqueElements(const HashSet &setA, const HashSet &setB);
+LineHashes getUniqueElements(const LineHashes &setA, const LineHashes &setB);
 
 /*! @brief get lines from the hash-values
  *
+ * @param hashes [in] the hashes
  * @param fileName [in] the file
- * @param hashSet [in] the hashes
  * @param myMap [in] the map which contains the hash<=>[lineNr, offset] infomation.
  * @return the lines
  */
-DiffResultLines getLinesFromHash(const std::string &fileName, const HashSet &hashSet, const MAP_HashAndLine &myMap);
+DiffResultLines getLinesFromHash(const LineHashes &hashes, const std::string &fileName, const MAP_HashAndLine &myMap);
 
-/*! @brief filter lines with regex
+/*! @brief filter lines with regex, and sort them in the end.
  *
  * @param lines [in] the lines
  * @param rawRegexList [in] the regex in raw-list

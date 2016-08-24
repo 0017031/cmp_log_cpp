@@ -60,7 +60,7 @@ bool IsDir(const std::string &theName) {
 }
 
 #if 0 //my trial codes
-void printHash(const std::string &fileName, const pair<HashSet, MAP_HashAndLine> &r)
+void printHash(const std::string &fileName, const pair<LineHashes, MAP_HashAndLine> &r)
 {
     ifstream inFile(fileName.c_str(), ios_base::binary); //must open as binary, then position is correct.
     auto myLogger = spdlog::get(LoggerName);
@@ -99,8 +99,8 @@ void test_hash(void)
     auto aRet0 = async(ddhash, f_left);
     auto aRet1 = async(ddhash, f_right);
 
-    pair<HashSet, MAP_HashAndLine> r0 = aRet0.get();
-    pair<HashSet, MAP_HashAndLine> r1 = aRet1.get();
+    pair<LineHashes, MAP_HashAndLine> r0 = aRet0.get();
+    pair<LineHashes, MAP_HashAndLine> r1 = aRet1.get();
 
     printHash(f_left, r0);
     printHash(f_right, r1);
@@ -112,7 +112,7 @@ void test_hash(void)
 #if 0 //async() no good here, because ResultSetAndMap[] in use.
 auto a1 = async(launch::async, getUniqueElements, ResultSetAndMap[_left__].first, ResultSetAndMap[_right_].first);
 auto a2 = async(launch::async, getUniqueElements, ResultSetAndMap[_right_].first, ResultSetAndMap[_left__].first);
-HashSet uniqHashes[2]{a1.get(), a2.get()};
+LineHashes uniqHashes[2]{a1.get(), a2.get()};
 #endif
 
 #if 0 //def REPORT_REPEATED_LINES
