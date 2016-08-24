@@ -18,24 +18,33 @@ int main(const int argc, const char **argv)
 
   myParameter p{argc, argv};
 
-  if (p.valid) {
+  if (p.valid)
+  {
     setup_logger(p.outputFile_name);
 
-    if (CompareType::file == p.howToCompare) {
+    if (CompareType::file == p.howToCompare)
+    {
       //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
       hash_and_compare_log(p.f1_name, p.f2_name);
 
-    } else if (CompareType::dir == p.howToCompare) {
+    }
+    else if (CompareType::dir == p.howToCompare)
+    {
       //todo: compare dir
       cerr << "todo: compare dir" << endl;
+      compare_dir(p.f1_name, p.f2_name);
 
-    } else if (CompareType::dir_with_list == p.howToCompare) {
+    }
+    else if (CompareType::dir_with_list == p.howToCompare)
+    {
       //todo: compare using file-list
       cerr << "todo: compare using file-list " << p.listFile_name << endl;
     }
 
     return 0;
-  } else {
+  }
+  else
+  {
     return 1;
   }
 }
@@ -59,8 +68,6 @@ void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
 void hash_and_compare_log(const string file_left_, const string file_right)
 {
   string files[2] = {file_left_, file_right};
-  const int _left__ = 0;
-  const int _right_ = 1;
 
   /* for each file, read-in lines, and compute line-hash, using multi-thread with std::ansync() */
   auto asyn_Left = async(launch::async, doHashLines, file_left_);
@@ -75,7 +82,8 @@ void hash_and_compare_log(const string file_left_, const string file_right)
 
   /* process/sort/print the result */
   auto myLogger = spdlog::get(LoggerName);
-  for (auto i: {_left__, _right_}) { // print left unique lines, then right.
+  for (auto i: {_left__, _right_})
+  { // print left unique lines, then right.
     /* get lines content from hash */
     DiffResultLines diff = getLinesFromHash(uniqHashes[i], files[i], myPairOf_Hashes_And_Map[i].second);
 
@@ -85,7 +93,8 @@ void hash_and_compare_log(const string file_left_, const string file_right)
     /* print the result */
     myLogger->info("{}{}{} {} unique lines in {}", prefixMarks[i], prefixMarks[i], prefixMarks[i],
                    filteredLines.size(), files[i]);
-    for (auto l : filteredLines) {
+    for (auto l : filteredLines)
+    {
       myLogger->debug("{} #{}, {}", prefixMarks[i], l.first, l.second);
     }
   }
@@ -114,7 +123,8 @@ pair<LineHashes, MAP_HashAndLine> doHashLines(const string &fileName)
 
   /* read lines */
   string line{};
-  while (getline(inFile, line)) {
+  while (getline(inFile, line))
+  {
     /* compute hash and store in map and set */
     HashValue l_hash = str_hash(line);
     hashes.push_back(l_hash);
@@ -157,7 +167,8 @@ DiffResultLines getLinesFromHash(const LineHashes &hashes, const std::string &fi
   diffLines.reserve(diffLineCount); //reserve spaces, cause we know the size in advance.
 
   string line{};
-  for (auto u_hash : hashes) {
+  for (auto u_hash : hashes)
+  {
     LineNr lineNumber = myMap.at(u_hash).first;
     Position position = myMap.at(u_hash).second;
     getline(inFile.seekg(position), line);                      //get line content via position
@@ -180,9 +191,11 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
   /* go through diffLiens, filter out regex-matched lines */
   DiffResultLines filtered_result;
   bool matchRegex_shouldOmit;
-  for (auto l : lines) {
+  for (auto l : lines)
+  {
     matchRegex_shouldOmit = regex_search(l.second, myRegexObj);
-    if (!matchRegex_shouldOmit) {
+    if (!matchRegex_shouldOmit)
+    {
       filtered_result.push_back(l);
     }
   }
@@ -192,4 +205,132 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
   return filtered_result;
 }
 
+void compare_dir(const string dir_left_, const string dir_right)
+{
+//# list all the log files, case insensitive
+
+  /*
+  vector<string> files[2];      //good
+  files[_left__] = getFiles(dir_left_);
+  files[_right_] = getFiles(dir_right);
+  */
+
+  /*
+  vector<string> files[2]{      //good, with calling "GetFileAttributes" on each ent->fd_name
+      DirectoryReader_dirent(dir_left_).listFiles(),
+      DirectoryReader_dirent(dir_right).listFiles(),
+  };
+  */
+
+  vector<string> files[2]{      //good
+      DirectoryReader_winAPI(dir_left_, default_file_ext).listFiles(),
+      DirectoryReader_winAPI(dir_right, default_file_ext).listFiles(),
+  };
+
+  cout << dir_left_ << endl;
+  for (auto f: files[_left__])
+  {
+    cout << f << endl;
+  }
+  cout << endl << dir_right << endl;
+  for (auto f: files[_right_])
+  {
+    cout << f << endl;
+  }
+
+//# find out common files
+
+//# compare each file by compare_log_file()
+}
+
+myParameter::myParameter(const int argc, const char *const *argv)
+{
+  args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
+  args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
+  args::ValueFlag<std::string>
+      output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
+  args::ValueFlag<std::string> list_file(parser,
+                                         "FILE_LIST",
+                                         "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
+                                         {'L', "file_list"});
+  args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
+  args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
+
+  /* parse parameters */
+  try
+  {
+    parser.ParseCLI(argc, argv);
+  }
+  catch (args::Help)
+  {
+    std::cout << "===========" << std::endl;
+    std::cout << parser;
+    this->valid = false;
+    return;
+  }
+  catch (args::ParseError e)
+  {
+    std::cerr << "===========" << std::endl;
+    std::cerr << e.what() << std::endl;
+    std::cerr << parser;
+    this->valid = false;
+    return;
+  }
+
+  /* get parameter values */
+  this->f1_name = f1 ? f1.Get() : "";
+  this->f2_name = f2 ? f2.Get() : "";
+  this->listFile_name = list_file ? list_file.Get() : "";
+  this->outputFile_name = output_file ? output_file.Get() : defaultOutputFile;
+
+  this->valid = false;
+  this->howToCompare = CompareType::unknown;
+
+  /* validate parameters: both f1, f2 and listFile_name(if given) should be valid */
+  if (!f1 || !f2) //I do need both f1 and f2
+  {
+    std::cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << std::endl;
+  }
+  else if (!FileCanBeRead(this->f1_name))
+  {
+    std::cerr << "\n! Can't open " << this->f1_name << ", \nplease check your input.\n" << std::endl;
+  }
+  else if (!FileCanBeRead(this->f2_name))
+  {
+    std::cerr << "\n! Can't open " << this->f2_name << ", \nplease check your input.\n" << std::endl;
+  }
+  else if (list_file && !FileCanBeRead(this->listFile_name))
+  {
+    std::cerr << "\n! Can't open " << this->listFile_name << ", \nplease check your input.\n" << std::endl;
+  }
+  else
+  {
+    this->valid = true;
+    /* decide how to compare */
+    if (IsDir(this->f1_name) && IsDir(this->f2_name))
+    {
+      this->howToCompare = this->listFile_name.empty() ?
+                           CompareType::dir :  //empty list-file, compare dir
+                           CompareType::dir_with_list;
+      this->valid = true;
+    }
+    else if (!IsDir(this->f1_name) && !IsDir(this->f2_name))
+    {
+      this->howToCompare = CompareType::file;
+      this->valid = true;
+    }
+    else
+    {
+      std::cerr << "\n! Can't compare file Vs. dir, please check your input.\n" << std::endl;
+      this->valid = false;
+    }
+  }
+
+  if (!this->valid)
+  {
+    std::cout << "===========" << std::endl;
+    std::cout << parser;
+  }
+  return;
+}
 

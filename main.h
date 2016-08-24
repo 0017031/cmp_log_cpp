@@ -72,9 +72,14 @@ const std::string RawStr_epilog_CallingExample{
 }; ///< command line examples
 const std::string defaultOutputFile{"diff_summary.txt"}; ///< default outpu files
 
+const std::string default_file_ext{"*.log"}; ///< which kind of file to search when comparing dir
+
+
 ///@breif the name for the logger [https://github.com/gabime/spdlog, local: w:\github-libs\spdlog (with my own changes)]
 const std::string LoggerName{"myLogger1"};
 const char prefixMarks[]{'-', '+'}; ///< prefix when printing the diff-lines
+const int _left__ = 0;
+const int _right_ = 1;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -85,116 +90,40 @@ const char prefixMarks[]{'-', '+'}; ///< prefix when printing the diff-lines
 enum CompareType {
   file,           ///< compare file1 vs. file2
   dir,            ///< compare dir1 vs. dir2 (for all files in dir, same-name Vs. same-name)
-  dir_with_list   ///< dir1 vs. dir2, only for files in the file-list
+  dir_with_list,   ///< dir1 vs. dir2, only for files in the file-list
+  unknown,
 };
 
 /*! @brief store the parsing result for parameters
  */
 struct myParameter {
 public:
-  bool valid;                 ///< whether it is valid
-  CompareType howToCompare;   ///< which kind of comparison
   std::string f1_name;        ///< name for f1/dir1
   std::string f2_name;        ///< name for f2/dir2
   std::string listFile_name;  ///< list_file, when comparing @ref dir_with_list
   std::string outputFile_name;///< default: diff_summary.txt (and another diff_summary_brief.txt)
 
-  /// initialize to default values
-  myParameter() :
-      valid{false},
-      outputFile_name{defaultOutputFile},
-      f1_name{}, //to check, use: f1_name.empty()
-      f2_name{},
-      listFile_name{} {};
+  bool valid;                 ///< whether it is valid
+  CompareType howToCompare;   ///< which kind of comparison
+
+
+  /* The order of initialization is the order that the members are declared in the class, not the order of the initialization list.
+   So, ALWAYS initialize member variables in the order they're declared.*/
+  // initialize to default values
+  myParameter()
+      : f1_name{},  //to check, use: f1_name.empty()
+        f2_name{},
+        listFile_name{},
+        outputFile_name{defaultOutputFile},
+        valid{false},
+        howToCompare{CompareType::unknown} {};
 
   /*! @brief parse the command line parameters. p.valid is updated according to parsing result.
    *
    * @param argc [in] same as the one fed to main()
    * @param argv [in] same as the one fed to main()
-   * @return none
    */
-  myParameter(const int argc, const char *const *argv)
-  {
-    args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
-    args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
-    args::ValueFlag<std::string>
-        output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
-    args::ValueFlag<std::string> cmp_file_list(parser,
-                                               "FILE_LIST",
-                                               "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
-                                               {'L', "file_list"});
-    args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
-    args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
-
-    /* parse parameters */
-    try {
-      parser.ParseCLI(argc, argv);
-      if (!f1 || !f2) //I do need both f1 and f2
-      {
-        std::cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << std::endl;
-        std::cout << "===========" << std::endl;
-        std::cout << parser;
-        this->valid = false;
-        return;
-      }
-    }
-    catch (args::Help) {
-      std::cout << "===========" << std::endl;
-      std::cout << parser;
-      this->valid = false;
-      return;
-    }
-    catch (args::ParseError e) {
-      std::cerr << "===========" << std::endl;
-      std::cerr << e.what() << std::endl;
-      std::cerr << parser;
-      this->valid = false;
-      return;
-    }
-
-    /* validate parameters */
-    if (output_file) {
-      this->outputFile_name = args::get(output_file);
-      std::cout << "output_file: " << this->outputFile_name << std::endl;
-    } else {
-      this->outputFile_name = defaultOutputFile;
-    }
-    if (cmp_file_list) {
-      this->listFile_name = args::get(cmp_file_list);
-      std::cout << "cmp_file_list: " << this->listFile_name << std::endl;
-    }
-
-    this->f1_name = f1.Get();
-    this->f2_name = f2.Get();
-
-    /* both f1 and f2 should be valid */
-    if (!FileCanBeRead(this->f1_name)) {
-      std::cerr << "\n! Can't open " << this->f1_name << ", \nplease check your input.\n" << std::endl;
-      std::cout << "===========" << std::endl;
-      std::cout << parser;
-      this->valid = false;
-      return;
-    } else if (!FileCanBeRead(this->f2_name)) {
-      std::cerr << "\n! Can't open " << this->f2_name << ", \nplease check your input.\n" << std::endl;
-      std::cout << "===========" << std::endl;
-      std::cout << parser;
-      this->valid = false;
-      return;
-    }
-
-    if (IsDir(this->f1_name) && IsDir(this->f2_name)) {
-      this->howToCompare = CompareType::dir;
-      this->valid = true;
-      //todo: check list-file, for comparing with list
-
-    } else if (!IsDir(this->f1_name) && !IsDir(this->f2_name)) {
-      this->howToCompare = CompareType::file;
-      this->valid = true;
-    } else {
-      this->valid = false;
-    }
-    return;
-  }
+  myParameter(const int argc, const char *const *argv);
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -254,6 +183,13 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
  * @return none
  */
 void setup_logger(std::string diff_record_file = "diff_summary.txt");
+
+/*!
+ * @brief compare two log directories, assuming they are already both valid.
+ * @param dir_left_
+ * @param dir_right
+ */
+void compare_dir(const std::string dir_left_, const std::string dir_right);
 
 #endif //C_HASH_CMP_LOG_MAIN_H
 

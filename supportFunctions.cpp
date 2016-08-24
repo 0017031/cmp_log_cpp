@@ -40,23 +40,46 @@ std::string stripCRLF(const std::string &s) {
 
 #ifndef __linux
 #include <io.h>
+#include <vector>
+
 #define access    _access_s // https://msdn.microsoft.com/en-us/library/a2xs1dts.aspx
 #else
 #include <unistd.h>
 #endif
 
 bool FileExists(const std::string &fileName) {
-  return access(fileName.c_str(), 0) == 0; // 00: Existence only.
+  return access(fileName.c_str(), F_OK) == 0; // 00: Existence only.
 }
 
 bool FileCanBeRead(const std::string &fileName) {
-  return access(fileName.c_str(), 4) == 0; // 04: Read permission.
+  return access(fileName.c_str(), R_OK) == 0; // 04: Read permission.
 }
 
 bool IsDir(const std::string &theName) {
   auto attributes = GetFileAttributes(theName.c_str());
   //std::cout << "file:" << theName << " attrib:" << attributes << std::endl;
   return (FILE_ATTRIBUTE_DIRECTORY == attributes);
+}
+
+
+#include <Windows.h>
+std::vector<std::string> getFiles(std::string folder)
+{
+  std::vector<std::string> names;
+  std::string search_path = folder + "/*.*";
+  WIN32_FIND_DATA fd;
+  HANDLE hFind = ::FindFirstFile(search_path.c_str(), &fd);
+  if(hFind != INVALID_HANDLE_VALUE) {
+    do {
+      // read all (real) files in current folder
+      // , delete '!' read other 2 default folder . and ..
+      if(! (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ) {
+        names.push_back(fd.cFileName);
+      }
+    }while(::FindNextFile(hFind, &fd));
+    ::FindClose(hFind);
+  }
+  return names;
 }
 
 #if 0 //my trial codes

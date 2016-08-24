@@ -717,10 +717,17 @@ public:
 
   /** Count the number of matched children this group has
    */
-  std::vector<Base *>::difference_type MatchedChildren() const {
-    return std::count_if(std::begin(children), std::end(children),
-                         [](const Base *child) { return child->Matched(); });
+  unsigned MatchedChildren() const {
+    return
+        static_cast<unsigned >(
+          std::count_if(
+              std::begin(children),
+              std::end(children),
+             [](const Base *child) { return child->Matched(); })
+        );
   }
+
+
 
   /** Whether or not this group matches validation
    */
