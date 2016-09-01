@@ -1,7 +1,10 @@
 .idea/
+.vs/
 bin*/
 *CMakeFiles/
 include/args/
 
-*.orig
+*.stackdump
 *.gch
+*.VC.db
+*.vcxproj.user

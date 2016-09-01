@@ -11,11 +11,13 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
+#include <experimental/filesystem>
 
 #include "supportFunctions.h"
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 #define my_type_defines
+namespace stdFs = std::experimental::filesystem;
 typedef std::vector<std::string> RegexRawLines;
 typedef int LineNr;
 typedef size_t HashValue;
@@ -98,25 +100,17 @@ enum CompareType {
  */
 struct myParameter {
 public:
-  std::string f1_name;        ///< name for f1/dir1
-  std::string f2_name;        ///< name for f2/dir2
-  std::string listFile_name;  ///< list_file, when comparing @ref dir_with_list
-  std::string outputFile_name;///< default: diff_summary.txt (and another diff_summary_brief.txt)
+  stdFs::path path_left_;        ///< name for f1/dir1
+  stdFs::path path_right;        ///< name for f2/dir2
+  stdFs::path listFilePath;  ///< list_file, when comparing @ref dir_with_list
+
+  stdFs::path outputFilePath;///< default: diff_summary.txt (and another diff_summary_brief.txt)
 
   bool valid;                 ///< whether it is valid
   CompareType howToCompare;   ///< which kind of comparison
 
-
   /* The order of initialization is the order that the members are declared in the class, not the order of the initialization list.
    So, ALWAYS initialize member variables in the order they're declared.*/
-  // initialize to default values
-  myParameter()
-      : f1_name{},  //to check, use: f1_name.empty()
-        f2_name{},
-        listFile_name{},
-        outputFile_name{defaultOutputFile},
-        valid{false},
-        howToCompare{CompareType::unknown} {};
 
   /*! @brief parse the command line parameters. p.valid is updated according to parsing result.
    *
@@ -182,14 +176,22 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
  * @param diff_record_file [in] name of the diff-result file
  * @return none
  */
-void setup_logger(std::string diff_record_file = "diff_summary.txt");
+void setup_logger(std::string diff_record_file = defaultOutputFile);
 
 /*!
  * @brief compare two log directories, assuming they are already both valid.
  * @param dir_left_
  * @param dir_right
  */
-void compare_dir(const std::string dir_left_, const std::string dir_right);
+void compare_dir(const stdFs::path dir_left_, const stdFs::path dir_right);
+
+/*!
+ * @brief get the names of the regular-file in a directory
+ * @param folder
+ * @return a vector of the file names
+ */
+std::vector<std::string> getFilesFromDir(const stdFs::path folder);
+std::string getBase(const std::string &s);
 
 #endif //C_HASH_CMP_LOG_MAIN_H
 

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.6)
 project(c_hash_cmp_log)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
 
 include_directories("include")
 #include_directories("${PROJECT_SOURCE_DIR}/include")
@@ -43,11 +43,12 @@ set(SOURCE_FILES
         include/spdlog/logger.h
         include/spdlog/spdlog.h
         include/spdlog/tweakme.h
-        supportFunctions.h
-        supportFunctions.cpp
+#        supportFunctions.h
+#        supportFunctions.cpp
         main.h
         pchheader.h
         main.cpp
         )
 
 add_executable(c_hash_cmp_log ${SOURCE_FILES})
+target_link_libraries(c_hash_cmp_log stdc++fs ktmw32)

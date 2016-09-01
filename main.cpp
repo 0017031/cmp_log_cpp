@@ -17,36 +17,34 @@ int main(const int argc, const char **argv)
 {
 
   myParameter p{argc, argv};
-
-  if (p.valid)
+  if (!p.valid)
   {
-    setup_logger(p.outputFile_name);
-
-    if (CompareType::file == p.howToCompare)
-    {
-      //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
-      hash_and_compare_log(p.f1_name, p.f2_name);
-
-    }
-    else if (CompareType::dir == p.howToCompare)
-    {
-      //todo: compare dir
-      cerr << "todo: compare dir" << endl;
-      compare_dir(p.f1_name, p.f2_name);
-
-    }
-    else if (CompareType::dir_with_list == p.howToCompare)
-    {
-      //todo: compare using file-list
-      cerr << "todo: compare using file-list " << p.listFile_name << endl;
-    }
-
-    return 0;
-  }
-  else
-  {
+    cerr << "\nInvalid parameter, type \"" << argv[0] << " -h\" for help" << endl;
     return 1;
   }
+
+  setup_logger(p.outputFilePath.string());
+
+  if (CompareType::file == p.howToCompare)
+  {
+    //W:/tools_baichun/log_cmp_easy/d1/t.log W:/tools_baichun/log_cmp_easy/d2/t.log
+    hash_and_compare_log(p.path_left_.string(), p.path_right.string());
+
+  }
+  else if (CompareType::dir == p.howToCompare)
+  {
+    //todo: compare dir
+    cerr << "todo: compare dir" << endl;
+    compare_dir(p.path_left_, p.path_right);
+
+  }
+  else if (CompareType::dir_with_list == p.howToCompare)
+  {
+    //todo: compare using file-list
+    cerr << "todo: compare using file-list " << p.listFilePath << endl;
+  }
+
+  return 0;
 }
 
 void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
@@ -54,7 +52,7 @@ void setup_logger(string diff_record_file /* = "diff_summary.txt"*/)
   // Create a logger with multiple sinks
   auto mySink_console = make_shared<spdlog::sinks::stdout_sink_st>();
   auto mySink_full = make_shared<spdlog::sinks::simple_file_sink_st>(diff_record_file);
-  auto mySink_brief = make_shared<spdlog::sinks::simple_file_sink_st>(getBaseName(diff_record_file) + "_brief.txt");
+  auto mySink_brief = make_shared<spdlog::sinks::simple_file_sink_st>(getBase(diff_record_file) + "_brief.txt");
 
   mySink_full->set_level(spdlog::level::debug);
   mySink_brief->set_level(spdlog::level::info);
@@ -112,7 +110,7 @@ void hash_and_compare_log(const string file_left_, const string file_right)
 
 pair<LineHashes, MAP_HashAndLine> doHashLines(const string &fileName)
 {
-  ifstream inFile{fileName.c_str(), ios_base::binary}; //must open as binary, then position is correct.
+  ifstream inFile{fileName, ios_base::binary}; //must open as binary, then position is correct.
   hash<string> str_hash;  //the hash "function"
   LineHashes hashes{};       //store the hash
   MAP_HashAndLine map{};  //store the {hash, LineInfo} map; l_hash ~mapped-to~ (lineNumber, position)
@@ -205,27 +203,17 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
   return filtered_result;
 }
 
-void compare_dir(const string dir_left_, const string dir_right)
+void compare_dir(const stdFs::path dir_left_, const stdFs::path dir_right)
 {
+  auto myLogger = spdlog::get(LoggerName);
+  if (dir_left_ == dir_right)
+  {
+    myLogger->info("Two same directories ({}) are given, comparison aborted.", dir_left_.string());
+    return;
+  }
+
 //# list all the log files, case insensitive
-
-  /*
-  vector<string> files[2];      //good
-  files[_left__] = getFiles(dir_left_);
-  files[_right_] = getFiles(dir_right);
-  */
-
-  /*
-  vector<string> files[2]{      //good, with calling "GetFileAttributes" on each ent->fd_name
-      DirectoryReader_dirent(dir_left_).listFiles(),
-      DirectoryReader_dirent(dir_right).listFiles(),
-  };
-  */
-
-  vector<string> files[2]{      //good
-      DirectoryReader_winAPI(dir_left_, default_file_ext).listFiles(),
-      DirectoryReader_winAPI(dir_right, default_file_ext).listFiles(),
-  };
+  vector<string> files[2]{getFilesFromDir(dir_left_), getFilesFromDir(dir_right)};
 
   cout << dir_left_ << endl;
   for (auto f: files[_left__])
@@ -238,21 +226,28 @@ void compare_dir(const string dir_left_, const string dir_right)
     cout << f << endl;
   }
 
+
 //# find out common files
 
 //# compare each file by compare_log_file()
 }
 
 myParameter::myParameter(const int argc, const char *const *argv)
+    : valid{false},
+      howToCompare{CompareType::unknown}
 {
   args::ArgumentParser parser("Compare common-log-files.", RawStr_epilog_CallingExample);
   args::HelpFlag help(parser, "help", "Display this help menu", {'h', "help"});
   args::ValueFlag<std::string>
-      output_file(parser, "OUTPUT", "OUTPUT:file to store the diff summary", {'O', "output"});
-  args::ValueFlag<std::string> list_file(parser,
-                                         "FILE_LIST",
-                                         "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
-                                         {'L', "file_list"});
+      output_file(parser,
+                  "OUTPUT",
+                  "OUTPUT:file to store the diff summary",
+                  {'O', "output"});
+  args::ValueFlag<std::string>
+      list_file(parser,
+                "FILE_LIST",
+                "FILE_LIST:a file of all the file names (which exist in both dir1 and dir2) to be compared, one name perl line)",
+                {'L', "file_list"});
   args::Positional<std::string> f1(parser, "f1", "the 1st(left)  file/dir to compare");
   args::Positional<std::string> f2(parser, "f2", "the 1st(left)  file/dir to compare");
 
@@ -265,7 +260,6 @@ myParameter::myParameter(const int argc, const char *const *argv)
   {
     std::cout << "===========" << std::endl;
     std::cout << parser;
-    this->valid = false;
     return;
   }
   catch (args::ParseError e)
@@ -273,64 +267,112 @@ myParameter::myParameter(const int argc, const char *const *argv)
     std::cerr << "===========" << std::endl;
     std::cerr << e.what() << std::endl;
     std::cerr << parser;
-    this->valid = false;
     return;
   }
 
   /* get parameter values */
-  this->f1_name = f1 ? f1.Get() : "";
-  this->f2_name = f2 ? f2.Get() : "";
-  this->listFile_name = list_file ? list_file.Get() : "";
-  this->outputFile_name = output_file ? output_file.Get() : defaultOutputFile;
+  path_left_.assign(f1.Get());
+  path_right.assign(f2.Get());
+  listFilePath.assign(list_file.Get());
+  outputFilePath.assign(output_file.Get()); //set default first.
 
-  this->valid = false;
-  this->howToCompare = CompareType::unknown;
-
-  /* validate parameters: both f1, f2 and listFile_name(if given) should be valid */
-  if (!f1 || !f2) //I do need both f1 and f2
+  /* validate parameters: both f1, f2 should be valid */
+  for (auto p : {path_left_, path_right})
   {
-    std::cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << std::endl;
-  }
-  else if (!FileCanBeRead(this->f1_name))
-  {
-    std::cerr << "\n! Can't open " << this->f1_name << ", \nplease check your input.\n" << std::endl;
-  }
-  else if (!FileCanBeRead(this->f2_name))
-  {
-    std::cerr << "\n! Can't open " << this->f2_name << ", \nplease check your input.\n" << std::endl;
-  }
-  else if (list_file && !FileCanBeRead(this->listFile_name))
-  {
-    std::cerr << "\n! Can't open " << this->listFile_name << ", \nplease check your input.\n" << std::endl;
-  }
-  else
-  {
-    this->valid = true;
-    /* decide how to compare */
-    if (IsDir(this->f1_name) && IsDir(this->f2_name))
+    if (p.empty())
     {
-      this->howToCompare = this->listFile_name.empty() ?
-                           CompareType::dir :  //empty list-file, compare dir
-                           CompareType::dir_with_list;
-      this->valid = true;
+      std::cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << std::endl;
+      return;
     }
-    else if (!IsDir(this->f1_name) && !IsDir(this->f2_name))
+    else if (!stdFs::exists(p))
     {
-      this->howToCompare = CompareType::file;
-      this->valid = true;
+      std::cerr << "\n! Can't open " << p << ", \nplease check your parameter.\n" << std::endl;
+      return;
+    }
+  }
+
+  /* validate parameters: listFilePath(if given) should be valid */
+  if (!listFilePath.empty())
+  {
+    if (!stdFs::exists(listFilePath)) //if given, it should exist.
+    {
+      std::cerr << "\n!! -L FILE_LIST: " << listFilePath
+                << " doesn't exist, \nplease check your parameter.\n" << std::endl;
+      return;
+    }
+    else if (stdFs::is_directory(listFilePath)) // it should not be an directory
+    {
+      std::cerr << "\n! -L FILE_LIST: " << listFilePath
+                << " can't be a *directory*, \nplease check your parameter.\n" << std::endl;
+      return;
+    }
+  }
+
+  /* validate parameters: outputFilePath(if anything wrong, set to default) */
+  if (outputFilePath.empty()) //if empty, set to default
+  {
+    outputFilePath.assign(defaultOutputFile); //set default first.
+  }
+  else //if valid given, update to new value
+  {
+    ofstream f{output_file.Get()};
+    if (f.good()) //test valid
+    {
+      outputFilePath.assign(output_file.Get());
     }
     else
     {
-      std::cerr << "\n! Can't compare file Vs. dir, please check your input.\n" << std::endl;
-      this->valid = false;
+      std::cerr << "\n! Invalid -L OUTPUT:" << output_file.Get()
+                << ", now use default " << defaultOutputFile << " instead\n" << std::endl;
+      outputFilePath.assign(defaultOutputFile); //set default first.
     }
   }
 
-  if (!this->valid)
+  /* decide how to compare */
+  if (stdFs::is_regular_file(path_left_) && stdFs::is_regular_file(path_right)) //two files given
   {
-    std::cout << "===========" << std::endl;
-    std::cout << parser;
+    howToCompare = CompareType::file;
+    valid = true;
+  }
+  else if (stdFs::is_directory(path_left_) && stdFs::is_directory(path_right)) //two dir given
+  {
+    listFilePath.empty() ?
+        howToCompare = CompareType::dir :
+        howToCompare = CompareType::dir_with_list;
+    valid = true;
+  }
+  else
+  {
+    std::cerr << "\n! Can't compare file Vs. dir, please check your parameter.\n" << std::endl;
+    valid = false;
   }
   return;
 }
 
+std::vector<std::string> getFilesFromDir(const stdFs::path folder)
+{
+  std::vector<std::string> files;
+
+  for (const auto f : stdFs::directory_iterator{folder})
+  {
+    if (stdFs::is_regular_file(f))
+    {
+      string s{f.path().filename().string()};
+      files.push_back(s);
+    }
+  }
+  std::sort(files.begin(), files.end(),
+            [](string s0, string s1) { //case insensitive sort
+              std::transform(s0.begin(), s0.end(), s0.begin(), ::tolower);
+              std::transform(s1.begin(), s1.end(), s1.begin(), ::tolower);
+              return s0 < s1;
+            });
+  return files;
+}
+
+std::string getBase(const std::string &s)
+{
+  stdFs::path p;
+  p.assign(s);
+  return p.stem().string();
+}

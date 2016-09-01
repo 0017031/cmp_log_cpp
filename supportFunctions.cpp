@@ -61,22 +61,21 @@ bool IsDir(const std::string &theName) {
   return (FILE_ATTRIBUTE_DIRECTORY == attributes);
 }
 
-
 #include <Windows.h>
-std::vector<std::string> getFiles(std::string folder)
-{
+
+std::vector<std::string> getFiles(std::string folder) {
   std::vector<std::string> names;
   std::string search_path = folder + "/*.*";
   WIN32_FIND_DATA fd;
   HANDLE hFind = ::FindFirstFile(search_path.c_str(), &fd);
-  if(hFind != INVALID_HANDLE_VALUE) {
+  if (hFind != INVALID_HANDLE_VALUE) {
     do {
       // read all (real) files in current folder
       // , delete '!' read other 2 default folder . and ..
-      if(! (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ) {
+      if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)) {
         names.push_back(fd.cFileName);
       }
-    }while(::FindNextFile(hFind, &fd));
+    } while (::FindNextFile(hFind, &fd));
     ::FindClose(hFind);
   }
   return names;
@@ -164,3 +163,19 @@ if (ret.second) //ret.second: a bool that is true if the element was actually in
     }
 #endif
 
+#if 0
+vector<string> files[2];      //good
+files[_left__] = getFiles(dir_left_);
+files[_right_] = getFiles(dir_right);
+
+vector<string> files[2]{      //good, with calling "GetFileAttributes" on each ent->fd_name
+    DirectoryReader_dirent(dir_left_).listFiles(),
+    DirectoryReader_dirent(dir_right).listFiles(),
+};
+
+vector<string> files[2]{      //good
+    DirectoryReader_winAPI(dir_left_.string(), default_file_ext).listFiles(),
+    DirectoryReader_winAPI(dir_right.string(), default_file_ext).listFiles(),
+};
+
+#endif
