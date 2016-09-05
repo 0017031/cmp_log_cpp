@@ -5,7 +5,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++1z")
 
 include_directories("include")
 #include_directories("${PROJECT_SOURCE_DIR}/include")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin1")
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin1")
 #set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "bin")
 
 set(SOURCE_FILES
