@@ -69,6 +69,7 @@ public:
       : std::logic_error(what_arg) {}
 };
 
+#if 0
 /*!
  * @brief list directory with dirent.h
  */
@@ -125,6 +126,8 @@ public:
 private:
   DIR *myDir;
 };
+
+#endif
 
 /*!
  * @brief list directory with winAPI: FindFirstFile, FindNextFile

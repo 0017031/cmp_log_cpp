@@ -47,6 +47,15 @@ std::string stripCRLF(const std::string &s) {
 #include <unistd.h>
 #endif
 
+#ifndef F_OK
+#define F_OK 0
+#endif
+
+#ifndef R_OK
+#define R_OK 4
+#endif
+
+
 bool FileExists(const std::string &fileName) {
   return access(fileName.c_str(), F_OK) == 0; // 00: Existence only.
 }
@@ -132,6 +141,18 @@ void test_hash(void)
 #endif
 
 #if 0 //async() no good here, because ResultSetAndMap[] in use.
+
+/*! @brief find the unique elements betwen setA and setB
+ *
+ * @param setA
+ * @param setB
+ * @return the unique elements
+ */
+LineHashes getUniqueElements(const LineHashes &setA, const LineHashes &setB);
+
+LineHashes getUniqueElements(const LineHashes &setA, const LineHashes &setB) {
+  return setA - setB;
+}
 auto a1 = async(launch::async, getUniqueElements, ResultSetAndMap[_left__].first, ResultSetAndMap[_right_].first);
 auto a2 = async(launch::async, getUniqueElements, ResultSetAndMap[_right_].first, ResultSetAndMap[_left__].first);
 LineHashes uniqHashes[2]{a1.get(), a2.get()};
@@ -178,4 +199,28 @@ vector<string> files[2]{      //good
     DirectoryReader_winAPI(dir_right.string(), default_file_ext).listFiles(),
 };
 
+#endif
+
+
+#if 0
+
+/*!
+ * @brief get ".log", from ".log" "log"
+ * @param s
+ * @return the extension without '.'
+ */
+std::string parseFileExtInput(std::string &s);
+
+
+string parseFileExtInput(string &s)
+{
+  std::string sep = ".";
+  size_t found = s.find_last_of(sep);
+  if (std::string::npos == found) { //not found
+    return '.' + s;
+  }
+  else { //found '.'
+    return s.substr(found); //from "sep" to string-end, [sep, end)
+  }
+}
 #endif

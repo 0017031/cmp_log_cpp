@@ -1,10 +1,23 @@
+
 .idea/
 .vs/
-bin*/
+ipch/
 *CMakeFiles/
-include/args/
+bin*/
+*Debug/
 
 *.stackdump
 *.gch
 *.VC.db
+*.VC.opendb
 *.vcxproj.user
+
+*.exe
+?.cpp
+??.cpp
+??.h
+diff*.txt
+packages.*
+packages/
+include/args/
+include/gsl/

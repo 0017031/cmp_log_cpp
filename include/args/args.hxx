@@ -928,7 +928,7 @@ private:
         if (flagsit != begin(flags)) {
           help << '\n';
         }
-        help << std::__cxx11::string(groupindent + helpParams.flagindent, ' ') << *flagsit;
+        help << std::string(groupindent + helpParams.flagindent, ' ') << *flagsit;
         flagssize = Glyphs(*flagsit);
       }
 
@@ -939,13 +939,13 @@ private:
         help << '\n';
       } else {
         // groupindent is on both sides of the minus sign, and therefore doesn't actually need to be in here
-        help << std::__cxx11::string(helpParams.helpindent - (helpParams.flagindent + flagssize), ' ')
+        help << std::string(helpParams.helpindent - (helpParams.flagindent + flagssize), ' ')
              << *infoit
              << '\n';
         ++infoit;
       }
       for (; infoit != end(info); ++infoit) {
-        help << std::__cxx11::string(groupindent + helpParams.helpindent, ' ') << *infoit << '\n';
+        help << std::string(groupindent + helpParams.helpindent, ' ') << *infoit << '\n';
       }
     }
     return;
@@ -1487,7 +1487,7 @@ public:
 
   /** Get whether this was matched
    */
-  bool Get() const noexcept {
+  bool Get() const noexcept override{
     return Matched();
   }
 };
