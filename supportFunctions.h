@@ -191,6 +191,22 @@ private:
 
 };
 
+std::string &removeLastSlash(std::string &s);
+
+string &removeLastSlash(string &s)
+{
+  if (s.empty())
+    return s;
+
+  const char &lastChar{s.back()};
+  if ('\\' == lastChar || '/' == lastChar)
+  {
+    s.pop_back();
+  }
+  return s;
+}
+
+
 #endif //# my_small_functions
 
 #endif //C_HASH_CMP_LOG_SUPPORTFUNCTIONS_H

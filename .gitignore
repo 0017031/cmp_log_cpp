@@ -1,16 +1,34 @@
-
+.codelite/
 .idea/
 .vs/
 ipch/
 *CMakeFiles/
 bin*/
 *Debug/
+*Release/
+.dir/
+*temp/
 
 *.stackdump
 *.gch
 *.VC.db
 *.VC.opendb
 *.vcxproj.user
+code_lite_p1/
+*.bat
+*---
+*+++
+*.workspace
+*.h.pch
+
+
+.color_coded
+.gitattributes
+.ycm_extra_conf.py
+*copy.txt
+
+*codelite.project
+
 
 *.exe
 ?.cpp
