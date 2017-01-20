@@ -13,3 +13,12 @@
 
 
 // TODO: reference additional headers your program requires here
+#include <future>
+#include <set>
+#include <iostream>
+#include <fstream>
+#include <regex>
+#include <experimental/filesystem>
+#include <array>
+
+#include <gsl/span>
