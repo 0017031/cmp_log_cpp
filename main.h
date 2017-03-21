@@ -7,6 +7,8 @@
 #include "spdlog/spdlog.h"
 #include "args/args.hxx"
 
+#include "g3log/logmessage.hpp"
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //#define my_type_defines
 namespace stdfs = std::experimental::filesystem;
@@ -196,5 +198,32 @@ bool iCompString(std::string s0, std::string s1) noexcept;
 std::string getBase(const std::string &s) noexcept;
 
 std::string &removeLastSlash(std::string &s) noexcept;
+
+
+struct CustomSink {
+
+	// Linux xterm color
+	// http://stackoverflow.com/questions/2616906/how-do-i-output-coloured-text-to-a-linux-terminal
+	enum FG_Color { YELLOW = 33, RED = 31, GREEN = 32, WHITE = 97 };
+
+	static FG_Color GetColor(const LEVELS level) {
+		if (level.value == WARNING.value) { return YELLOW; }
+		if (level.value == DEBUG.value) { return GREEN; }
+		if (g3::internal::wasFatal(level)) { return RED; }
+
+		return WHITE;
+	}
+
+    void ReceiveLogMessage(g3::LogMessageMover logEntry) const
+    {
+        auto level = logEntry.get()._level;
+		//auto color = GetColor(level);
+
+		//std::cout << "\033[" << color << "m"
+		//	<< logEntry.get().toString() << "\033[m" << std::endl;
+
+        std::cout << logEntry.get().toString() <<  std::endl;
+    }
+};
 
 #endif // C_HASH_CMP_LOG_MAIN_H
