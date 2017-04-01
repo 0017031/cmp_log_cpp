@@ -9,6 +9,7 @@ bin*/
 .dir/
 *temp/
 
+
 *.stackdump
 *.gch
 *.VC.db
@@ -20,7 +21,8 @@ code_lite_p1/
 *+++
 *.workspace
 *.h.pch
-
+*.log
+j_*.cpp
 
 .color_coded
 .gitattributes

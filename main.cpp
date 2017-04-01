@@ -214,7 +214,7 @@ DiffResultLines getLinesFromHash(const LineHashes &hashes, const path &file, con
         const LineNr lineNumber = myMap.at(u_hash).first;
         const Position position = myMap.at(u_hash).second;
         getline(inFile.seekg(position), line); // get line content via position
-        diffLines.push_back(make_pair(lineNumber, line));
+        diffLines.push_back(make_pair(lineNumber, move(line));
     }
     return diffLines;
 }
