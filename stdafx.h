@@ -18,7 +18,8 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
-#include <experimental/filesystem>
+//#include <experimental/filesystem> // https://docs.microsoft.com/en-us/cpp/visual-cpp-language-conformance, note.7
+#include <filesystem>
 #include <array>
 
 #include <gsl/span>

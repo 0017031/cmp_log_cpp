@@ -214,7 +214,7 @@ DiffResultLines getLinesFromHash(const LineHashes &hashes, const path &file, con
         const LineNr lineNumber = myMap.at(u_hash).first;
         const Position position = myMap.at(u_hash).second;
         getline(inFile.seekg(position), line); // get line content via position
-        diffLines.push_back(make_pair(lineNumber, move(line));
+        diffLines.push_back(make_pair(lineNumber, move(line)));
     }
     return diffLines;
 }
@@ -277,33 +277,6 @@ LogFileList operator-(const LogFileList &listA, const LogFileList &listB) noexce
     set_difference(listA.begin(), listA.end(), listB.begin(), listB.end(), back_inserter(result), iCompString);
 
     return result;
-}
-
-bool iCompString(string s0, string s1) noexcept
-{ // case insensitive compare
-    transform(s0.begin(), s0.end(), s0.begin(), ::tolower);
-    transform(s1.begin(), s1.end(), s1.begin(), ::tolower);
-    return s0 < s1;
-}
-
-string getBase(const string &s) noexcept
-{
-    path p;
-    p.assign(s);
-    return p.stem().string();
-}
-
-string &removeLastSlash(string &s) noexcept
-{
-    if (s.empty())
-        return s;
-
-    const char &lastChar{s.back()};
-    if ('\\' == lastChar || '/' == lastChar)
-    {
-        s.pop_back();
-    }
-    return s;
 }
 
 myParameter::myParameter(const int argc, const char *const *argv)

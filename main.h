@@ -191,10 +191,10 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
  */
 LogFileList getFilesFromDir(const stdfs::path folder, const std::string &fileExt) noexcept;
 
+
+// my own helper functions
 bool iCompString(std::string s0, std::string s1) noexcept;
-
 std::string getBase(const std::string &s) noexcept;
-
 std::string &removeLastSlash(std::string &s) noexcept;
 
 #endif // C_HASH_CMP_LOG_MAIN_H
