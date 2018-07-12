@@ -7,22 +7,34 @@
 #include "spdlog/spdlog.h"
 #include "args/args.hxx"
 
+#include <experimental/filesystem>
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //#define my_type_defines
 namespace stdfs = std::experimental::filesystem;
-using RegexRawLines = std::vector<std::string>;
-using LineNr = int ;
-using HashValue = size_t ;
-using Position =  std::ios::pos_type ;
-using PAIR_LineInfo = std::pair<LineNr, Position> ;
-using LineHashes = std::vector<HashValue> ; ///< use vector to store hashes. Remember to sort it befor set_difference.
-using MAP_HashAndLine = std::map<HashValue, PAIR_LineInfo> ;
+//using RegexRawLines = std::vector<std::string>;
+using LineNr = int;
+using HashValue = size_t;
+using Position =  std::ios::pos_type;
+using PAIR_LineInfo = std::pair<LineNr, Position>;
+struct LineInfo {
+  int lineNr = nullptr/*= 0*/;
+  std::ios::pos_type position /*= std::ios::pos_type(-1)*/; //tellg
+};
+struct DiffResult2 {
+  int line_number;
+  std::string line_content;
+};
+
+using LineHashes = std::vector<HashValue>; ///< use vector to store hashes. Remember to sort it before set_difference.
+using MAP_HashAndLine = std::map<HashValue, PAIR_LineInfo>;
+using MAP_Hash_to_LineInfo2 = std::map<HashValue, LineInfo>;
 using DiffResult = std::pair<LineNr, std::string>;
-using DiffResultLines = std::vector<DiffResult> ;
-using LogFileList = std::vector<std::string> ;
+using DiffResultLines = std::vector<DiffResult>;
+using DiffResultLines2 = std::vector<DiffResult2>;
+using LogFileList = std::vector<std::wstring>;
 
 /// @typedef MAP_HashAndLine : hashValue maps to {LineNr, Position/offset_in_file};
-/// so when reading lines, we could quickly loacte lineNumber/postion from hash
+/// so when reading lines, we could quickly locate lineNumber/position from hash
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -51,33 +63,34 @@ example:
 */
 
 ///@breif a list of raw regex expressions
-const RegexRawLines Raw_filter_list{
-    "^#",
-    R"rawstring(MAOV\|StdProperty\|Verifier Configuration File)rawstring",
-    R"rawstring(MAOV\|StdProperty\|Verification Date & Time)rawstring",
-    R"rawstring(MAOV\|StdVersion\|)rawstring",
-    R"rawstring(MODEL\|StdProperty\|Simulation Date & Time)rawstring",
-    R"rawstring(MODEL\|StdVersion\|CEL)rawstring",
-    R"rawstring(MODEL\|StdVersion\|ModelExecutable)rawstring",
-    R"rawstring(MODEL\|StdVersion\|ModelLibrary)rawstring",
-    R"rawstring(SortLog\|StdProperty\|Filtered Events File)rawstring",
-    R"rawstring(SortLog\|StdProperty\|sort_log.pl)rawstring",
-    R"rawstring(MODEL\|ProcessHRVSegmentDone)rawstring",
-    R"rawstring(MAOVStatistics.+NotExercised)rawstring",
+constexpr const char *Raw_filter_list[] = {
+	"^#",
+	R"rawstring(MAOV\|StdProperty\|Verifier Configuration File)rawstring",
+	R"rawstring(MAOV\|StdProperty\|Verification Date & Time)rawstring",
+	R"rawstring(MAOV\|StdVersion\|)rawstring",
+	R"rawstring(MODEL\|StdProperty\|Simulation Date & Time)rawstring",
+	R"rawstring(MODEL\|StdVersion\|CEL)rawstring",
+	R"rawstring(MODEL\|StdVersion\|ModelExecutable)rawstring",
+	R"rawstring(MODEL\|StdVersion\|ModelLibrary)rawstring",
+	R"rawstring(SortLog\|StdProperty\|Filtered Events File)rawstring",
+	R"rawstring(SortLog\|StdProperty\|sort_log.pl)rawstring",
+	R"rawstring(MODEL\|ProcessHRVSegmentDone)rawstring",
+	R"rawstring(MAOVStatistics.+NotExercised)rawstring",
 };
-const std::string RawStr_epilog_CallingExample{
-    R"rawstring(example:
+constexpr auto RawStr_epilog_CallingExample =
+	R"rawstring(example:
     c_hash_cmp_log.exe file1 file2  -O diff_summary.txt
     c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt
     c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt -T log
     c_hash_cmp_log.exe dir1  dir2   -O diff_summary.txt -L fileList.txt
-    )rawstring"};                                        ///< command line examples
-const std::string defaultOutputFile{"diff_summary.txt"}; ///< default outpu files
+    )rawstring";                                        ///< command line examples
 
-const std::string defaultSubDir{"lines_diff"}; ///< default sub dir
+constexpr auto defaultOutputFile = L"diff_summary.txt"; ///< default output files
+
+constexpr auto defaultSubDir = L"lines_diff"; ///< default sub dir
 
 ///@breif the name for the logger [https://github.com/gabime/spdlog, local: w:/github-libs/spdlog (with my own changes for multi-log-sink)]
-const std::string LoggerName{"myLogger1"};
+constexpr auto LoggerName = "myLogger1";
 constexpr char prefixMarks[]{'-', '+'}; ///< prefix when printing the diff-lines
 constexpr int _left__ = 0;
 constexpr int _right_ = 1;
@@ -89,45 +102,47 @@ constexpr int _right_ = 1;
 /*! @brief to indicate which kind of comparison when parsing the parameters
  */
 enum class CompareType {
-    file,          ///< compare file1 vs. file2
-    dir,           ///< compare dir1 vs. dir2 (for all files in dir, same-name Vs. same-name)
-    dir_with_list, ///< dir1 vs. dir2, only for files in the file-list
-    unknown,
+  file,          ///< compare file1 vs. file2
+  dir,           ///< compare dir1 vs. dir2 (for all files in dir, same-name Vs. same-name)
+  dir_with_list, ///< dir1 vs. dir2, only for files in the file-list
+  unknown,
 };
 
 /*! @brief store the parsing result for parameters
  */
 struct myParameter {
-    /*! @brief parse the command line parameters. p.valid is updated according to parsing result.
-    *
-    * @param argc [in] same as the one fed to main()
-    * @param argv [in] same as the one fed to main()
-    */
-    myParameter(const int argc, const char *const *argv);
+  /*! @brief parse the command line parameters. p.valid is updated according to parsing result.
+  *
+  * @param argc [in] same as the one fed to main()
+  * @param argv [in] same as the one fed to main()
+  */
+  myParameter(int argc, const char *const *argv);
 
-    stdfs::path path_left_;   ///< name for f1/dir1
-    stdfs::path path_right;   ///< name for f2/dir2
-    stdfs::path listFilePath; ///< list_file, when comparing @ref dir_with_list
-    std::string fileType;     ///< file with which extionson to compare("log" for *.log), if not given, compare all
+  stdfs::path path_left_;   ///< name for f1/dir1
+  stdfs::path path_right;   ///< name for f2/dir2
+  stdfs::path listFilePath; ///< list_file, when comparing @ref dir_with_list
+  std::string fileType;     ///< file with which extension to compare("log" for *.log), if not given, compare all
 
-    stdfs::path outputFilePath; ///< default: diff_summary.txt (and another diff_summary_brief.txt)
+  stdfs::path outputFilePath; ///< default: diff_summary.txt (and another diff_summary_brief.txt)
 
-	bool valid{ false };               ///< whether the instance is valid
-	CompareType howToCompare{ CompareType::unknown }; ///< which kind of comparison
+  bool valid{false};               ///< whether the instance is valid
+  CompareType howToCompare{CompareType::unknown}; ///< which kind of comparison
 
-    /* The order of initialization is the order that the members are declared in the class, not the order of the initialization list.
-     So, ALWAYS initialize member variables in the order they're declared.*/
+  /* The order of initialization is the order that the members are declared in the class, not the order of the initialization list.
+   So, ALWAYS initialize member variables in the order they're declared.*/
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //#define my_big_functions
 
-/*! @brief compare logfiles by computing the hash of each lines,
+/*! @brief compare log-files by computing the hash of each lines,
  *  then use set-math-operation to find out unique lines
  *
  * @param  [in] files // left, right
  */
-void compare_logFile(const std::array<stdfs::path, 2> &files) noexcept;
+//void compare_logFile(const std::array<stdfs::path, 2> &files) noexcept;
+
+void compare_logFile2(const std::array<stdfs::path, 2> &log_files) noexcept;
 
 /*!
  * @brief compare two log directories, assuming they are already both valid.
@@ -141,7 +156,7 @@ void compare_dir(const std::array<stdfs::path, 2> &dirs, const std::string &file
  * @param diff_record_file [in] name of the diff-result file
  * @return none
  */
-void setup_logger(const std::string &diff_record_file = defaultOutputFile) noexcept;
+void setup_logger(const std::wstring &diff_record_file = defaultOutputFile) noexcept;
 
 /*! @brief compute hashes line by line, store the result in a sorted-container of hashes, and a map
  *
@@ -150,7 +165,10 @@ void setup_logger(const std::string &diff_record_file = defaultOutputFile) noexc
  */
 std::pair<LineHashes, MAP_HashAndLine> doHashLines(const stdfs::path &file) noexcept;
 
-/*! @brief find the unique elements betwen setA and setB
+std::pair<LineHashes, std::map<HashValue, LineInfo>>
+compute_line_hash2(const std::experimental::filesystem::path &log_file_for_hash) noexcept;
+
+/*! @brief find the unique elements between setA and setB
  *
  * @param setA
  * @param setB
@@ -158,7 +176,11 @@ std::pair<LineHashes, MAP_HashAndLine> doHashLines(const stdfs::path &file) noex
  */
 LineHashes operator-(const LineHashes &setA, const LineHashes &setB) noexcept;
 
-/*! @brief find the unique elements betwen two sets of logfiles, case insensitive
+
+template <typename OrderedContainer>
+OrderedContainer set_diff(const OrderedContainer &setA, const OrderedContainer &setB) noexcept;
+
+/*! @brief find the unique elements between two sets of log-files, case insensitive
 *
 * @param listA
 * @param listB
@@ -170,10 +192,16 @@ LogFileList operator-(const LogFileList &listA, const LogFileList &listB) noexce
  *
  * @param hashes [in] the hashes
  * @param file [in] the file
- * @param myMap [in] the map which contains the hash<=>[lineNr, offset] infomation.
+ * @param myMap [in] the map which contains the hash<=>[lineNr, offset] information.
  * @return the lines
  */
-DiffResultLines getLinesFromHash(const LineHashes &hashes, const stdfs::path &file, const MAP_HashAndLine &myMap) noexcept;
+DiffResultLines getLinesFromHash(const LineHashes &hashes,
+                                 const stdfs::path &file,
+                                 const MAP_HashAndLine &myMap) noexcept;
+
+DiffResultLines2 getLinesFromHash2(const LineHashes &hashes,
+                                   const stdfs::path &file,
+                                   const MAP_Hash_to_LineInfo2 &myMap) noexcept;
 
 /*! @brief filter lines with regex, and sort them in the end.
  *
@@ -181,7 +209,11 @@ DiffResultLines getLinesFromHash(const LineHashes &hashes, const stdfs::path &fi
  * @param rawRegexList [in] the regex in raw-list
  * @return the result, the filtered lines, sorted.
  */
-DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLines &rawRegexList) noexcept;
+template<typename SPAN>
+DiffResultLines regexFilterLines(const DiffResultLines &lines, SPAN rawRegexList) noexcept;
+
+template<typename SPAN>
+DiffResultLines2 regexFilterLines2(const DiffResultLines2 &lines, SPAN rawRegexList) noexcept ;
 
 /*!
  * @brief get the names of the regular-file in a directory
@@ -189,12 +221,11 @@ DiffResultLines regexFilterLines(const DiffResultLines &lines, const RegexRawLin
  * @param fileExt
  * @return a vector of the file names
  */
-LogFileList getFilesFromDir(const stdfs::path folder, const std::string &fileExt) noexcept;
-
+LogFileList getFilesFromDir(const std::experimental::filesystem::path &folder, const std::string &fileExt) noexcept;
 
 // my own helper functions
 bool iCompString(std::string s0, std::string s1) noexcept;
-std::string getBase(const std::string &s) noexcept;
+template<typename STR> STR getBase(const STR &s) noexcept;
 std::string &removeLastSlash(std::string &s) noexcept;
 
 #endif // C_HASH_CMP_LOG_MAIN_H

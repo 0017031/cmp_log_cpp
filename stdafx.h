@@ -12,14 +12,15 @@
 
 
 
-// TODO: reference additional headers your program requires here
 #include <future>
 #include <set>
 #include <iostream>
 #include <fstream>
 #include <regex>
-//#include <experimental/filesystem> // https://docs.microsoft.com/en-us/cpp/visual-cpp-language-conformance, note.7
-#include <filesystem>
 #include <array>
-
+#include <experimental/filesystem>
+#include <numeric>
 #include <gsl/span>
+
+//#include <experimental/filesystem> // https://docs.microsoft.com/en-us/cpp/visual-cpp-language-conformance, note.7
+//#include <filesystem>

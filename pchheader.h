@@ -10,7 +10,6 @@
 #include <iostream>
 #include <fstream>
 #include <regex>
-#include <experimental/filesystem>
 
 #include "spdlog/spdlog.h"
 #include "args/args.hxx"
