@@ -1,9 +1,5 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26014.0
-MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "c_hash_cmp_vs2017", "c_hash_cmp_vs2017.vcxproj", "{F93E1849-120E-4629-B9BD-F42007CC94C9}"
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "c_hash_cmp_vs2019", "c_hash_cmp_vs2019.vcxproj", "{F93E1849-120E-4629-B9BD-F42007CC94C9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
