@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="pre-compiled">
+      <UniqueIdentifier>{1122082B-04ED-4C02-8270-EB043A6F89B9}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <!--<Filter Include="Resource Files">
+      <UniqueIdentifier>{0FE82083-6628-4286-AB2E-AAE3E650E647}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>-->
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="catch2.test1.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <Filter>pre-compiled</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="stdafx.h">
+      <Filter>pre-compiled</Filter>
+    </ClInclude>
+    <ClInclude Include="1.mapping_whole_file.h" />
+    <ClInclude Include="2.read_file_by_getline.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="planning.txt" />
+  </ItemGroup>
+</Project>

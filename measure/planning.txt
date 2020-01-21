@@ -1,0 +1,6 @@
+1. mapping whole file into memory
+	1.1 compare hashing-full-file vs. hashing-half-with-2-std::async-threads
+
+2. split 2 half (n? half) , read through each half by asyn()
+3. each line is denoted by a span
+4. compute hash parallel or async()

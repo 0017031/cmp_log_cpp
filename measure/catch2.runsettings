@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+   <!-- Configurations that affect the Test Framework -->
+   <RunConfiguration>
+       <MaxCpuCount>2</MaxCpuCount>
+       <ResultsDirectory>.\Catch2_Tests\TestResults</ResultsDirectory><!-- Path relative to solution directory -->
+       <TargetPlatform>x86</TargetPlatform>
+       <TestSessionTimeout>6000</TestSessionTimeout><!-- Milliseconds -->
+   </RunConfiguration>
+
+   <!-- Adapter Specific sections -->
+   <Catch2Adapter>
+       <DiscoverCommandLine>--list-tests *</DiscoverCommandLine>
+       <DiscoverTimeout>200</DiscoverTimeout><!-- Milliseconds -->
+       <FilenameFilter>^Catch2_</FilenameFilter><!-- Regex filter -->
+       <IncludeHidden>true</IncludeHidden>
+       <Logging>normal</Logging>
+       <StackTraceFormat>Filename</StackTraceFormat>
+       <TestCaseTimeout>2000</TestCaseTimeout><!-- Milliseconds -->
+       <WorkingDirectoryRoot>Executable</WorkingDirectoryRoot>
+       <WorkingDirectory>..\Catch2_TestData</WorkingDirectory>
+   </Catch2Adapter>
+
+</RunSettings>

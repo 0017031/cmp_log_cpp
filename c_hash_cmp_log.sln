@@ -1,0 +1,27 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.25428.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "c_hash_cmp_log", "c_hash_cmp_log.vcxproj", "{CDF3CE36-18B3-362C-BEED-FB7F0B225915}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		MinSizeRel|Win32 = MinSizeRel|Win32
+		Release|Win32 = Release|Win32
+		RelWithDebInfo|Win32 = RelWithDebInfo|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.Debug|Win32.ActiveCfg = Debug|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.Debug|Win32.Build.0 = Debug|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.MinSizeRel|Win32.ActiveCfg = MinSizeRel|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.MinSizeRel|Win32.Build.0 = MinSizeRel|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.Release|Win32.ActiveCfg = Release|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.Release|Win32.Build.0 = Release|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.RelWithDebInfo|Win32.ActiveCfg = RelWithDebInfo|Win32
+		{CDF3CE36-18B3-362C-BEED-FB7F0B225915}.RelWithDebInfo|Win32.Build.0 = RelWithDebInfo|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
