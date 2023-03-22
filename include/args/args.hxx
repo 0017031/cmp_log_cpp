@@ -1487,7 +1487,7 @@ public:
 
   /** Get whether this was matched
    */
-  bool Get() const noexcept override{
+  bool Get() const noexcept {
     return Matched();
   }
 };

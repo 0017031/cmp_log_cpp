@@ -7,10 +7,10 @@ using namespace gsl;
 using namespace std;
 using namespace stdfs;
 
-string getBase(const string& s) noexcept
+string getBase(const string &s) noexcept
 {
     // path p(s);
-    return path{ s }.stem().string();
+    return path{s}.stem().string();
 }
 
 bool iCompString(string s0, string s1) noexcept
@@ -21,14 +21,15 @@ bool iCompString(string s0, string s1) noexcept
     return s0 < s1;
 }
 
-string& removeLastSlash(string& s) noexcept
+string &removeLastSlash(string &s) noexcept
 {
     if (s.empty())
         return s;
 
-    const auto lastChar{ s.back() };
+    const auto lastChar{s.back()};
     // if ('\\' == lastChar || '/' == lastChar)
-    if (lastChar == '\\' || lastChar == '/') {
+    if (lastChar == '\\' || lastChar == '/')
+    {
         s.pop_back();
     }
     return s;

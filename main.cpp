@@ -5,7 +5,7 @@ using namespace gsl;
 using namespace std;
 using namespace stdfs;
 
-static const path Script_Path = current_path();
+//static const path Script_Path = current_path();
 
 /*!
  *  Compare common-log-files. (current limitation: all files and path are ASCII).
@@ -76,7 +76,7 @@ void compare_logFile(const array<path, 2> &files) noexcept
         const auto my_mark = string {prefixMarks[i]};    // "+" or "-"
         const auto prefix3 = string (3, prefixMarks[i]); // +++ or ---
 
-        auto diff_content_subdir = Script_Path / (defaultSubDir + to_string(i));
+        auto diff_content_subdir = current_path() / (defaultSubDir + to_string(i));
         create_directory(diff_content_subdir);
 
         if (filtered_lines.size() != 0)
@@ -325,13 +325,13 @@ myParameter::myParameter(const int argc, const char *const *argv)
     {
         if (p.empty())
         {
-            cerr << "\n! Missing parameters. Both f1 and f2 are needed\n" << endl;
+            cerr << "\n! Missing parameters. Both f1 and f2 are needed\n\n"; 
             return;
         }
         
     	if (!exists(p))
         {
-            cerr << "\n! Can't open " << p << ", \nplease check your parameter.\n" << endl;
+            cerr << "\n! Can't open " << p << ", \nplease check your parameter.\n\n";
             return;
         }
     }
@@ -341,7 +341,7 @@ myParameter::myParameter(const int argc, const char *const *argv)
     {
         if (!exists(listFilePath)) // if given, it should exist.
         {
-            cerr << "\n!! -L FILE_LIST: " << listFilePath << " doesn't exist, \nplease check your parameter.\n" << endl;
+            cerr << "\n!! -L FILE_LIST: " << listFilePath << " doesn't exist, \nplease check your parameter.\n\n";
             return;
         }
 
@@ -387,7 +387,7 @@ myParameter::myParameter(const int argc, const char *const *argv)
     }
     else
     {
-        cerr << "\n! Can't compare file Vs. dir, please check your parameter.\n" << endl;
+        cerr << "\n! Can't compare file Vs. dir, please check your parameter.\n\n";
         valid = false;
     }
     return;
